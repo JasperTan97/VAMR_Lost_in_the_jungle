@@ -20,7 +20,7 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 - [ ] Implementation of `VO_State`
 
 ### `J`a`s`p`e`r
-- [ ] Gonna do KLT
+- [X] Gonna do KLT LOL
     - I will presume it will work
 
 ### Abhiram
