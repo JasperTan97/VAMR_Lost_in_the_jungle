@@ -1,8 +1,13 @@
 # VAMR_Lost_in_the_jungle
-Help Dora find her way out using visual odometry
+As part of the mini-project for the [Vision Algorithms for Mobile Robotics](https://rpg.ifi.uzh.ch/teaching.html) (VAMR) course at UZH taught by Prof Davide Scaramuzza, we (Abhiram, Adarsh, Jasper and [TianYi](https://github.com/tianyilim)) implement a monocular Visual Odometry (VO) pipeline on the KITTI, Malaga and Parking datasets.
 
-Instructions for where to store data:
-Files are in ./data/{parking, kitti, malaga-urban-dataset-extract-07}/...
+## Setup
+1. Clone this repository.
+2. Navigate to the root folder of this repo.
+3. Run `setup.sh`. It should:
+   1. Setup a `conda` environment, `vamr_proj`, with `requirements.txt` installed.
+   2. Download the datasets from the VAMR course websites.
+4. Try out our examples (**TODO**).
 
 ## Task allocation
 ### TY
