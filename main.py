@@ -35,28 +35,16 @@ class VO_state:
         - C (2d coords (u,v) candidate keypoints)
         - F (2d coords (u,v) of first observation of candidate keypoints )
         - T (R,T of transform from World to frame where candidate keypoints were first observed)
+    - Methods
+        - As long as we insert X in the same order as P, and F,T in the same order as C, there should be no mistakes
     '''
     def __init__(self,
-                P: List[np.ndarray]=[],
-                X: List[np.ndarray]=[],
-                C: List[np.ndarray]=None,
-                F: List[np.ndarray]=None,
-                T: List[np.ndarray]=None) -> None:
+                P: np.ndarray=np.empty((0,2)),
+                X: np.ndarray=np.empty((0,2)),
+                C: np.ndarray=None,
+                F: np.ndarray=None,
+                T: np.ndarray=None) -> None:
         assert len(P) == len(X)
-        self.PX = []
-        # TODO initalize P, X in an appropriate data structure
-        # Perhaps init as a dict instead or with better indexing??
-        for i in range(len(P)):
-            self.PX.append( (P[i], X[i]) )
-
-
-        if C is None or F is None or T is None:
-            self.CFT = []
-        assert len(C) == len(F)
-        assert len(C) == len(T)
-        # TODO initialize C, F, T in an appropriate data structure
-        for i in range(len(C)):
-            self.PX.append( (C[i], F[i], T[i]) )
 
 def featureDetection(image, method="SIFT") -> Tuple[List[Tuple[float,float]], List[np.ndarray]]:
     raise NotImplementedError
