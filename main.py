@@ -4,6 +4,8 @@ import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple, Dict
 
+from KLT_main import KLT
+
 # Constants for tunable parameters
 from constants import *
 
@@ -89,7 +91,7 @@ def initialiseVO(I1, I0) -> VO_state:
 
     return VO_state(P=P0, X=X0)
 
-def processFrame(I1, S0:VO_state) -> Tuple[VO_state, pose]:
+def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, pose]:
     '''
     Continuous VO
     Inputs: Current image I1, previous state S0
@@ -98,11 +100,11 @@ def processFrame(I1, S0:VO_state) -> Tuple[VO_state, pose]:
     State unpacks to P,X,C,F,T, see VO_state class
     '''
     P0, X0, C0, F0, T0 = S0 # unpack state i-1
-    P1 = KLT(P0, I1) # tracks P0 features in I1
+    P1 = KLT(P0, I1, I0) # tracks P0 features in I1
     X1 = removeLostPoints(P0, X0, P1) # Update X1 from P1 and X0
     R1, T1 = PnPRansac(P1, X1) # Get current pose with RANSAC
     T1_WC = np.hstack((R1, T1)) # Get transformation matrix in SE3 (without bottom row)
-    C1 = KLT(C0, I1) # track C0 features in I1
+    C1 = KLT(C0, I1, I0) # track C0 features in I1
     C1 = featureDectection(I1,C1,P1) # Add new features to keep C1 from shrinking
     F1 = firstObservationTracker(C0, F0, C1) # update F1 with C1
     T1 = cameraPoseMappedTo_c(C0, T0, C1) # update T1 with C1
