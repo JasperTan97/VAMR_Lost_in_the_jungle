@@ -3,8 +3,7 @@ import numpy as np
 
 from typing import List, Tuple, Dict
 
-# from code.KLT_main import KLT
-from code.triangulation import triangulation
+from code.KLT_main import KLT
 from code.get_relative_pose import get_relative_pose
 
 # Constants for tunable parameters
@@ -190,7 +189,7 @@ def main() -> None:
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
 
-    for img_path in enumerate(sorted(DS_GLOB)):
+    for img_path in sorted(DS_GLOB):
         frame = cv2.imread(img_path)
 
         state, T_WC = processFrame(frame, prev_state) # continuous VO markov chain
