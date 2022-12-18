@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from glob import glob
 
-from constants import RANSAC_REPROJ_THRESHOLD, RANSAC_PROB_SUCCESS, RANSAC_NUM_ITS
+from code.constants import RANSAC_REPROJ_THRESHOLD, RANSAC_PROB_SUCCESS, RANSAC_NUM_ITS
 
 DS_PATH = './data/parking/images/'
 DS_GLOB = glob(DS_PATH+'*.png')

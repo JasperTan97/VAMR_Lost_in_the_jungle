@@ -9,6 +9,15 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
    2. Download the datasets from the VAMR course websites.
 4. Try out our examples (**TODO**).
 
+## Repository Structure
+- `data`: Our example datasets. These comprise a list of images along with the corresponding `K` camera intrinsic matrics.
+  - `Parking` dataset
+  - `KITTI` dataset
+  - `Malaga` dataset
+- `code`: Our functions for VO
+- `_examples`: Testing/demo code. **SHOULD BE REMOVED BEFORE MAKING REPO PUBLIC**
+- `main.py`: Our main function. Run this to see the output.
+
 ## Task allocation
 ### TY
 - [ ] Investigate OpenCV functions
