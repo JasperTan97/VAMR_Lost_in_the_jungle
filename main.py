@@ -9,6 +9,22 @@ from code.KLT_main import KLT
 # Constants for tunable parameters
 from constants import *
 
+# For reading the dataset from file
+from glob import glob
+
+DATASET = 'parking'
+if DATASET=='parking':
+    DS_PATH = './data/parking/images/'
+    K_PATH = './data/parking/K.txt'
+elif DATASET=='kitti':
+    raise NotImplementedError
+elif DATASET=='malaga':
+    raise NotImplementedError
+else:
+    raise ValueError
+
+DS_GLOB = glob(DS_PATH+'*.png')
+
 class VO_state:
     '''
     State that contains structs for
@@ -114,19 +130,17 @@ def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, pose]:
     return S1, T1_WC
 
 def main() -> None:
-    VIDEO_PATH = ''
-    # Read from video stream
-    cap = cv2.VideoCapture(VIDEO_PATH)
-    
-    # Pick 2 keyframes to start before calling initialiseVO
-    # Initialize VO from 2 views - I0 and I1 set manually
-    BOOTSTRAP_FRAME = 3
-    for i in range(BOOTSTRAP_FRAME):
-        _, frame = cap.read()
-        if i == 0:
-            I0 = frame
-        if i == BOOTSTRAP_FRAME-1:
-            I1 = frame
+    K = np.loadtxt(K_PATH)  # Get K (hardcoded to dataset)
+
+    # Bootstrap
+    for img_idx, img_path in enumerate(sorted(DS_GLOB)):
+        if img_idx == 0:
+            I0 = cv2.imread( img_path )
+
+        if img_idx == BOOTSTRAP_FRAME:
+            I1 = cv2.imread( img_path )
+            break
+
     bootstrapped_state = initialiseVO(I1, I0)
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
@@ -134,8 +148,10 @@ def main() -> None:
 
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
-    while cap.isOpened():
-        _, frame = cap.read() # get next image
+
+    for img_path in enumerate(sorted(DS_GLOB)):
+        frame = cv2.imread(img_path)
+
         state, T_WC = processFrame(frame, prev_state) # continuous VO markov chain
         prev_state = state # set current state to previous state for next image
         odom.append(T_WC) # append current pose to odom list
@@ -144,8 +160,9 @@ def main() -> None:
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
-    # When everything is done, release the video cap object.
-    cap.release()
+    
+    # Close all windows we might have
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
