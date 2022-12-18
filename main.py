@@ -29,15 +29,15 @@ elif DATASET=='malaga':
 else:
     raise ValueError
 
-DS_GLOB = glob(DS_PATH+'*.png')
+DS_GLOB = sorted( glob(DS_PATH+'*.png') )
 
 Pose = np.ndarray
 class VO_state:
     '''
     State that contains structs for
     - Point correspondences
-        - P (2d coords (u,v) point correspondences)
-        - X (3d coords (x,y,z) point positions)
+        - P (2d coords (u,v,1) homogenous point correspondences)
+        - X (3d coords (x,y,z,1) homogenous point positions)
     - Candidate points
         - C (2d coords (u,v) candidate keypoints)
         - F (2d coords (u,v) of first observation of candidate keypoints )
@@ -53,17 +53,22 @@ class VO_state:
                 T: np.ndarray=None) -> None:
 
         assert P.shape[-1] == X.shape[-1], f"P (shape {P.shape}) and X (shape {X.shape}) have diff lengths"
+        assert P.shape[0] == 3, "P are the homogenous pixel correspondences, it should have structure (u,v,1)"
+        assert X.shape[0] == 4, "X are the homogenous 3d point correspondences, it should have structure (x,y,z,1)"
         self.P = P
         self.X = X
 
         if C is None or F is None or T is None:
-            self.CFT = []
+            self.C = []
+            self.F = []
+            self.T = []
         else:
             assert len(C) == len(F)
             assert len(C) == len(T)
             # TODO initialize C, F, T in an appropriate data structure
-            for i in range(len(C)):
-                self.PX.append( (C[i], F[i], T[i]) )
+            self.C = C
+            self.F = F
+            self.T = T
 
 def featureDetection(image, method="SIFT") -> Tuple[List[Tuple[float,float]], List[np.ndarray]]:
     raise NotImplementedError
@@ -75,7 +80,7 @@ def initialiseVO(I1, I0) -> VO_state:
     Initializes
     '''
     # 1. Feature detection and descriptor generation
-    # TODO replace this without using cv2.sift code
+    # TODO @Abhiram replace this without using cv2.sift code
     img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
     img1_gray = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
     # Initialize SIFT detector
@@ -147,7 +152,7 @@ def initialiseVO(I1, I0) -> VO_state:
 
     return VO_state(P=points0, X=X0)
 
-def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, Pose]:
+def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     '''
     Continuous VO
     Inputs: Current image I1, previous state S0
@@ -155,7 +160,12 @@ def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, Pose]:
 
     State unpacks to P,X,C,F,T, see VO_state class
     '''
-    P0, X0, C0, F0, T0 = S0 # unpack state i-1
+    P0 = S0.P 
+    X0 = S0.X 
+    C0 = S0.C 
+    F0 = S0.F 
+    T0 = S0.T # unpack state i-1
+
     P1 = KLT(P0, I1, I0) # tracks P0 features in I1
     X1 = removeLostPoints(P0, X0, P1) # Update X1 from P1 and X0
     R1, T1 = PnPRansac(P1, X1) # Get current pose with RANSAC
@@ -171,7 +181,7 @@ def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, Pose]:
 
 def main() -> None:
     # Bootstrap
-    for img_idx, img_path in enumerate(sorted(DS_GLOB)):
+    for img_idx, img_path in enumerate(DS_GLOB):
         if img_idx == 0:
             I0 = cv2.imread( img_path )
 
@@ -188,12 +198,16 @@ def main() -> None:
 
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
+    prev_frame = I0
 
-    for img_path in sorted(DS_GLOB):
+    for img_path in DS_GLOB[1:]:
         frame = cv2.imread(img_path)
 
-        state, T_WC = processFrame(frame, prev_state) # continuous VO markov chain
+        state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
+
         prev_state = state # set current state to previous state for next image
+        prev_frame = frame
+
         odom.append(T_WC) # append current pose to odom list
 
         # ~ Press Q on keyboard to exit (for debugging)
