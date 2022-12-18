@@ -13,13 +13,13 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 ### TY
 - [ ] Investigate OpenCV functions
   - [ ] PNP RANSAC
-  - [ ] Find Fundemental Matrix (5/8 point RANSAC)
-    - [ ] Extract R,T
+  - [x] Find Fundemental Matrix (5/8 point RANSAC)
+    - [x] Extract R,T
 - [x] Open and process dataset
   - [x] Get `K` from it (so far only working on Parking dataset)
-- [ ] Implementation of `VO_State`
 
 ### `J`a`s`p`e`r
+- [X] Implementation of `VO_State`
 - [X] Gonna do KLT LOL
     - I will presume it will work
 

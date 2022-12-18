@@ -43,19 +43,19 @@ class VO_state:
         - C (2d coords (u,v) candidate keypoints)
         - F (2d coords (u,v) of first observation of candidate keypoints )
         - T (R,T of transform from World to frame where candidate keypoints were first observed)
+    - Methods
+        - As long as we insert X in the same order as P, and F,T in the same order as C, there should be no mistakes
     '''
     def __init__(self,
-                P: np.ndarray=[],
-                X: np.ndarray=[],
+                P: np.ndarray=np.empty((0,2)),
+                X: np.ndarray=np.empty((0,2)),
                 C: np.ndarray=None,
                 F: np.ndarray=None,
                 T: np.ndarray=None) -> None:
 
         assert P.shape[-1] == X.shape[-1], f"P (shape {P.shape}) and X (shape {X.shape}) have diff lengths"
-        self.PX = []
-        # Perhaps init as a dict instead or with better indexing??
-        for i in range(P.shape[-1]):
-            self.PX.append( (P[:,i], X[:,i]) )
+        self.P = P
+        self.X = X
 
         if C is None or F is None or T is None:
             self.CFT = []
@@ -181,7 +181,8 @@ def main() -> None:
             break
 
     bootstrapped_state = initialiseVO(I1, I0)
-    print(bootstrapped_state.PX)
+    print(bootstrapped_state.P)
+    print(bootstrapped_state.X)
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
