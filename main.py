@@ -4,7 +4,7 @@ import numpy as np
 from dataclasses import dataclass
 from typing import List, Tuple, Dict
 
-from KLT_main import KLT
+from code.KLT_main import KLT
 
 # Constants for tunable parameters
 from constants import *
