@@ -58,6 +58,7 @@ RANSAC_OUTLIER_FRAC = 0.50      # Outlier ratio
 RANSAC_NUM_MODEL_PARAMS = 8     # We are using 8-point algo, so 8 parameters
 RANSAC_NUM_ITS = np.log(1-RANSAC_PROB_SUCCESS)/np.log(1-(1-RANSAC_OUTLIER_FRAC)**RANSAC_NUM_MODEL_PARAMS)
 
+# Idea: Do RANSAC in parallel
 for _ in range(RANSAC_NUM_ITS):
     # Select 8 points at random
     # Compute 8-point algo with these sampled points
