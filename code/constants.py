@@ -29,3 +29,10 @@ NUM_OCTAVES = 5                 # number of octaves
 R_T = 15                        # scalar, radius of patch to track
 KLT_N_ITER = 50                     # scalar, number of iterations
 KLT_THRESHOLD = 0.1                 # scalar, bidirectional error threshold
+
+##############
+# PnP RANSAC #
+##############
+
+NUM_ITER_RANSAC = 1000
+PIXEL_TOLERANCE = 10

@@ -7,6 +7,7 @@ from code.KLT_main import KLT, KLT_bootstraping
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
+from code.pnp_ransac_main import PnPRANSAC
 
 # Constants for tunable parameters
 from code.constants import *
@@ -178,7 +179,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
 
     P1 = KLT(P0, I1, I0) # tracks P0 features in I1
     X1 = removeLostPoints(P0, X0, P1) # Update X1 from P1 and X0
-    R1, T1 = PnPRansac(P1, X1) # Get current pose with RANSAC
+    R1, T1 = PnPRansac(P1, X1, K) # Get current pose with RANSAC
     T1_WC = np.hstack((R1, T1)) # Get transformation matrix in SE3 (without bottom row)
     C1 = KLT(C0, I1, I0) # track C0 features in I1
     C1 = featureDectection(I1,C1,P1) # Add new features to keep C1 from shrinking
@@ -228,7 +229,6 @@ def main() -> None:
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
 
-    
     # Close all windows we might have
     cv2.destroyAllWindows()
 
