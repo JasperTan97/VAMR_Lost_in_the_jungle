@@ -37,7 +37,6 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 ### Abhiram
 - Bootstrapping
     - [ ] Feature matching
-    - [ ] 5/8 point + RANSAC
 
 ### Adarsh
 - [ ] firstObservationTracker
