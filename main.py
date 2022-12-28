@@ -76,18 +76,18 @@ def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # r
     if method == "SIFT":
         return SIFT(image, ROTATION_INVARIANT, CONTRAST_THRESHOLD, SIFT_SIGMA, NUM_SCALES, NUM_OCTAVES)
 
-def triangulation(p0: np.ndarray, p1: np.ndarray, R: np.ndarray, T: np.ndarray) -> np.ndarray:
-    # Perform triangulation
-    # first make each p in p0 and p1 a 3x1 vector, currently a 2x1
-    p0 = np.concatenate((p0, np.ones((p0.shape[0],1))), axis=1)
-    p1 = np.concatenate((p1, np.ones((p0.shape[0],1))), axis=1)
-    # make M1 : I(3x3) + 0(3x1)
-    M0 = np.concatenate((np.eye(3), np.zeros((3,1))), axis=1)
-    # make M2 : R + T (concatenated)
-    M1 = np.concatenate((R, T), axis=1)
-    # run linear triangulation
-    X_4byN = linearTriangulation(p0.T, p1.T, M0, M1)
-    return np.delete(X_4byN, -1, 0).T # returns Nx3 array of world coordinates
+# def triangulation(p0: np.ndarray, p1: np.ndarray, R: np.ndarray, T: np.ndarray) -> np.ndarray:
+#     # Perform triangulation
+#     # first make each p in p0 and p1 a 3x1 vector, currently a 2x1
+#     p0 = np.concatenate((p0, np.ones((p0.shape[0],1))), axis=1)
+#     p1 = np.concatenate((p1, np.ones((p0.shape[0],1))), axis=1)
+#     # make M1 : I(3x3) + 0(3x1)
+#     M0 = np.concatenate((np.eye(3), np.zeros((3,1))), axis=1)
+#     # make M2 : R + T (concatenated)
+#     M1 = np.concatenate((R, T), axis=1)
+#     # run linear triangulation
+#     X_4byN = linearTriangulation(p0.T, p1.T, M0, M1)
+#     return np.delete(X_4byN, -1, 0).T # returns Nx3 array of world coordinates
 
 def get_R_T():
     raise NotImplementedError
@@ -164,7 +164,9 @@ def initialiseVO(I1, I0) -> VO_state:
         points1,
         E, K
     )
-    print(f"Points: {points0.shape}, 3D: {X0.shape}")
+    # print(f"Points: {points0.shape}, 3D: {X0.shape}")
+
+    # triangulation already done in 3. Removed 4. triangulation
 
     # 5. Bundle adjustment to refine R, T, X0
     # TODO figure this out
