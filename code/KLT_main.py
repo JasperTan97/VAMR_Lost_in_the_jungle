@@ -15,23 +15,23 @@ def KLT(keypoints, I, I_prev) -> np.ndarray:
         n_iter      scalar, number of iterations
         threshold   scalar, bidirectional error threshold
     Output:
-        dkp         np.ndarray, m x 2, of m new points
+        keypoints         np.ndarray, m x 2, of m new points
     """ 
     r_T = 15
     n_iter = 50
     threshold = 0.1
 
-    #dkp = np.zeros_like(keypoints)
-    dkp = []
-    # keep = np.ones((keypoints.shape[1],)).astype('bool')
+    dkp = np.zeros_like(keypoints)
+    # dkp = []
+    keep = np.ones((keypoints.shape[1],)).astype('bool')
     for j in range(keypoints.shape[1]):
         kptd, k = trackKLTRobustly(I_prev, I, keypoints[:,j].T, r_T, n_iter, threshold)
         if k:
             dkp.append(kptd)
-        #dkp[:, j] = kptd
-        #keep[j] = k
+        dkp[:, j] = kptd
+        keep[j] = k
     # kpold = keypoints[:, keep]
-    # keypoints = keypoints + dkp
-    # keypoints = keypoints[:, keep]
+    keypoints = keypoints + dkp
+    keypoints = keypoints[:, keep]
 
-    return np.vstack(dkp)
+    return keypoints
