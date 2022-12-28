@@ -3,7 +3,7 @@ import numpy as np
 
 from typing import List, Tuple, Dict
 
-from code.KLT_main import KLT
+from code.KLT_main import KLT, KLT_bootstraping
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
@@ -77,10 +77,7 @@ def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # r
 #     X_4byN = linearTriangulation(p0.T, p1.T, M0, M1)
 #     return np.delete(X_4byN, -1, 0).T # returns Nx3 array of world coordinates
 
-def get_R_T():
-    raise NotImplementedError
-
-def initialiseVO(I1, I0) -> VO_state:
+def initialiseVO(I) -> VO_state:
     '''
     Bootstrapping
 
@@ -98,34 +95,39 @@ def initialiseVO(I1, I0) -> VO_state:
     # kp0, des0 = sift.detectAndCompute(img0_gray, None)
     # kp1, des1 = sift.detectAndCompute(img1_gray, None)
 
-    kp1, des1 = featureDetection(I1)
-    kp0, des0 = featureDetection(I0)
+    #kp1, des1 = featureDetection(I1)
+    kp0, des0 = featureDetection(I[0])
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
+    kp1, kp0, kp0 = KLT_bootstraping(kp0, kp0, I[1], I[0])
+    kptemp = kp0
+    for i in range(len(I)-2):
+        kp1, kptemp, kp0 = KLT_bootstraping(kp0, kptemp, I[i+2], I[i+1])
+    pts0 = kp0
+    pts1 = kp1
+    # # create BFMatcher object
+    # bf = cv2.BFMatcher(normType=cv2.NORM_L2, crossCheck=False)
+    # # Match descriptors
+    # matches = bf.knnMatch(des0, des1, k=2)
+    # # knnMatch returns tuple of 2 nearest matches
+    # # print(len(matches))
+    # # print([f"{m.trainIdx}->{m.queryIdx}:{m.distance}; {n.trainIdx}->{n.queryIdx}:{n.distance}" for m, n in matches[:10]])
+    # # Ref: https://docs.opencv.org/4.x/d4/de0/classcv_1_1DMatch.html
+    # # the query index is from the 1st arg (in this case des0)
+    # # the train index is from the 2nd arg (in this case des1)
 
-    # create BFMatcher object
-    bf = cv2.BFMatcher(normType=cv2.NORM_L2, crossCheck=False)
-    # Match descriptors
-    matches = bf.knnMatch(des0, des1, k=2)
-    # knnMatch returns tuple of 2 nearest matches
-    # print(len(matches))
-    # print([f"{m.trainIdx}->{m.queryIdx}:{m.distance}; {n.trainIdx}->{n.queryIdx}:{n.distance}" for m, n in matches[:10]])
-    # Ref: https://docs.opencv.org/4.x/d4/de0/classcv_1_1DMatch.html
-    # the query index is from the 1st arg (in this case des0)
-    # the train index is from the 2nd arg (in this case des1)
-
-    # Apply ratio test
-    good_matches = []
-    # m is the best match, n is the second-best.
-    # Access the distance between matches using <>.distance
-    for m, n in matches:
-        if m.distance < 0.8*n.distance or n.distance < 0.8*m.distance:
-            good_matches.append([m])    # Visualisation requires list of match objects
+    # # Apply ratio test
+    # good_matches = []
+    # # m is the best match, n is the second-best.
+    # # Access the distance between matches using <>.distance
+    # for m, n in matches:
+    #     if m.distance < 0.8*n.distance or n.distance < 0.8*m.distance:
+    #         good_matches.append([m])    # Visualisation requires list of match objects
 
     # 3. Get Fundemental matrix
-    pts0 = np.array([kp0[x[0].queryIdx].pt for x in good_matches])
-    pts1 = np.array([kp1[x[0].trainIdx].pt for x in good_matches])
+    # pts0 = np.array([kp0[x[0].queryIdx].pt for x in good_matches])
+    # pts1 = np.array([kp1[x[0].trainIdx].pt for x in good_matches])
 
     # pts0 and pts1 are Nx2 Numpy arrays containing the pixel coords of the matches.
     F, _ = cv2.findFundamentalMat(

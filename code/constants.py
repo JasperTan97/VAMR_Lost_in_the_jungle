@@ -22,3 +22,10 @@ CONTRAST_THRESHOLD = 0.04       # for feature matching
 SIFT_SIGMA = 1.0                # sigma used for blurring
 NUM_SCALES = 3                  # number of scales per octave
 NUM_OCTAVES = 5                 # number of octaves
+
+#######
+# KLT #
+#######
+R_T = 15                        # scalar, radius of patch to track
+KLT_N_ITER = 50                     # scalar, number of iterations
+KLT_THRESHOLD = 0.1                 # scalar, bidirectional error threshold
