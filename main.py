@@ -87,20 +87,19 @@ def initialiseVO(I1, I0) -> VO_state:
     Initializes
     '''
     # 1. Feature detection and descriptor generation
-    # TODO @Abhiram replace this without using cv2.sift code
-    img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
-    img1_gray = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
-    # Initialize SIFT detector
-    sift = cv2.SIFT_create()
-    # Compute SIFT keypoints and descriptors
-    # kp is a cv2.keypoint object. Access pixel values with kp_.pt
-    # Ref: https://docs.opencv.org/4.x/d2/d29/classcv_1_1KeyPoint.html
-    # des is the descriptor, in this case a 128-long numpy float array.
-    kp0, des0 = sift.detectAndCompute(img0_gray, None)
-    kp1, des1 = sift.detectAndCompute(img1_gray, None)
+    # img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
+    # img1_gray = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
+    # # Initialize SIFT detector
+    # sift = cv2.SIFT_create()
+    # # Compute SIFT keypoints and descriptors
+    # # kp is a cv2.keypoint object. Access pixel values with kp_.pt
+    # # Ref: https://docs.opencv.org/4.x/d2/d29/classcv_1_1KeyPoint.html
+    # # des is the descriptor, in this case a 128-long numpy float array.
+    # kp0, des0 = sift.detectAndCompute(img0_gray, None)
+    # kp1, des1 = sift.detectAndCompute(img1_gray, None)
 
-    # P1, d1 = featureDetection(I1)
-    # P0, d0 = featureDetection(I0)
+    kp1, des1 = featureDetection(I1)
+    kp0, des0 = featureDetection(I0)
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
