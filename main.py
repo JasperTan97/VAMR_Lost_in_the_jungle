@@ -1,15 +1,15 @@
 import cv2
 import numpy as np
 
-from dataclasses import dataclass
 from typing import List, Tuple, Dict
 
 from code.KLT_main import KLT
+from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 from code.linear_triangulation import linearTriangulation
 
 # Constants for tunable parameters
-from constants import *
+from code.constants import *
 
 # For reading the dataset from file
 from glob import glob
@@ -18,6 +18,12 @@ DATASET = 'parking'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
+    # Get K (hardcoded to dataset)
+    K = np.array(
+        [[331.37, 0,       320,],
+         [0,      369.568, 240,],
+         [0,      0,       1]])
+
 elif DATASET=='kitti':
     raise NotImplementedError
 elif DATASET=='malaga':
@@ -25,14 +31,15 @@ elif DATASET=='malaga':
 else:
     raise ValueError
 
-DS_GLOB = glob(DS_PATH+'*.png')
+DS_GLOB = sorted( glob(DS_PATH+'*.png') )
 
+Pose = np.ndarray
 class VO_state:
     '''
     State that contains structs for
     - Point correspondences
-        - P (2d coords (u,v) point correspondences)
-        - X (3d coords (x,y,z) point positions)
+        - P (2d coords (u,v,1) homogenous point correspondences)
+        - X (3d coords (x,y,z,1) homogenous point positions)
     - Candidate points
         - C (2d coords (u,v) candidate keypoints)
         - F (2d coords (u,v) of first observation of candidate keypoints )
@@ -46,7 +53,24 @@ class VO_state:
                 C: np.ndarray=None,
                 F: np.ndarray=None,
                 T: np.ndarray=None) -> None:
-        assert len(P) == len(X)
+
+        assert P.shape[-1] == X.shape[-1], f"P (shape {P.shape}) and X (shape {X.shape}) have diff lengths"
+        assert P.shape[0] == 3, "P are the homogenous pixel correspondences, it should have structure (u,v,1)"
+        assert X.shape[0] == 4, "X are the homogenous 3d point correspondences, it should have structure (x,y,z,1)"
+        self.P = P
+        self.X = X
+
+        if C is None or F is None or T is None:
+            self.C = []
+            self.F = []
+            self.T = []
+        else:
+            assert len(C) == len(F)
+            assert len(C) == len(T)
+            # TODO initialize C, F, T in an appropriate data structure
+            self.C = C
+            self.F = F
+            self.T = T
 
 def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
     if method == "SIFT":
@@ -75,39 +99,79 @@ def initialiseVO(I1, I0) -> VO_state:
     Initializes
     '''
     # 1. Feature detection and descriptor generation
-    P1, d1 = featureDetection(I1)
-    P0, d0 = featureDetection(I0)
+    # TODO @Abhiram replace this without using cv2.sift code
+    img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
+    img1_gray = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
+    # Initialize SIFT detector
+    sift = cv2.SIFT_create()
+    # Compute SIFT keypoints and descriptors
+    # kp is a cv2.keypoint object. Access pixel values with kp_.pt
+    # Ref: https://docs.opencv.org/4.x/d2/d29/classcv_1_1KeyPoint.html
+    # des is the descriptor, in this case a 128-long numpy float array.
+    kp0, des0 = sift.detectAndCompute(img0_gray, None)
+    kp1, des1 = sift.detectAndCompute(img1_gray, None)
+
+    # P1, d1 = featureDetection(I1)
+    # P0, d0 = featureDetection(I0)
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
-    for i in range(len(P1)):
-        # TODO brute-force matching (we have no priors)
-        pass
 
+    # create BFMatcher object
+    bf = cv2.BFMatcher(normType=cv2.NORM_L2, crossCheck=False)
+    # Match descriptors
+    matches = bf.knnMatch(des0, des1, k=2)
+    # knnMatch returns tuple of 2 nearest matches
+    # print(len(matches))
+    # print([f"{m.trainIdx}->{m.queryIdx}:{m.distance}; {n.trainIdx}->{n.queryIdx}:{n.distance}" for m, n in matches[:10]])
+    # Ref: https://docs.opencv.org/4.x/d4/de0/classcv_1_1DMatch.html
+    # the query index is from the 1st arg (in this case des0)
+    # the train index is from the 2nd arg (in this case des1)
 
-    # 3. Normalized 5 or 8 point algo + RANSAC -> R, T between the two views
-    # https://www.programcreek.com/python/example/89336/cv2.findFundamentalMat
-    F, mask = cv2.findFundamentalMat(
-            points1=P0,
-            points2=P1,
-            method=cv2.RANSAC
-        )
+    # Apply ratio test
+    good_matches = []
+    # m is the best match, n is the second-best.
+    # Access the distance between matches using <>.distance
+    for m, n in matches:
+        if m.distance < 0.8*n.distance or n.distance < 0.8*m.distance:
+            good_matches.append([m])    # Visualisation requires list of match objects
 
-    print(F, mask)  # TODO check if this returns the fundemental matrix
+    # 3. Get Fundemental matrix
+    pts0 = np.array([kp0[x[0].queryIdx].pt for x in good_matches])
+    pts1 = np.array([kp1[x[0].trainIdx].pt for x in good_matches])
 
-    # TODO get R, T out of F matrix
-    R, T = get_R_T(F)
+    # pts0 and pts1 are Nx2 Numpy arrays containing the pixel coords of the matches.
+    F, _ = cv2.findFundamentalMat(
+        pts0, 
+        pts1,
+        method=cv2.FM_RANSAC, 
+        ransacReprojThreshold=RANSAC_REPROJ_THRESHOLD,
+        confidence=RANSAC_PROB_SUCCESS,
+        maxIters=RANSAC_NUM_ITS
+    )
 
-    # 4. Triangulation of all these landmarks
-    X0 = triangulation(P0, P1, R, T)
-    
+    # Essential Matrix
+    E = np.linalg.inv(K.T) @ F @ np.linalg.inv(K)
+
+    # Convert points format for OpenCV into 3xN homogenous pixel coordinates
+    points0 = np.vstack([pts0.T, np.ones((1, pts0.shape[0]))])
+    points1 = np.vstack([pts1.T, np.ones((1, pts1.shape[0]))])
+
+    # Get R, T, X out of E matrix
+    # X is a byproduct of disambiguating the possibilities in R, T
+    _, _, X0 = get_relative_pose(
+        points0,
+        points1,
+        E, K
+    )
+    print(f"Points: {points0.shape}, 3D: {X0.shape}")
+
     # 5. Bundle adjustment to refine R, T, X0
-    # TODO figure it out
+    # TODO figure this out
 
+    return VO_state(P=points0, X=X0)
 
-    return VO_state(P=P0, X=X0)
-
-def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, pose]:
+def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     '''
     Continuous VO
     Inputs: Current image I1, previous state S0
@@ -115,7 +179,12 @@ def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, pose]:
 
     State unpacks to P,X,C,F,T, see VO_state class
     '''
-    P0, X0, C0, F0, T0 = S0 # unpack state i-1
+    P0 = S0.P 
+    X0 = S0.X 
+    C0 = S0.C 
+    F0 = S0.F 
+    T0 = S0.T # unpack state i-1
+
     P1 = KLT(P0, I1, I0) # tracks P0 features in I1
     X1 = removeLostPoints(P0, X0, P1) # Update X1 from P1 and X0
     R1, T1 = PnPRansac(P1, X1) # Get current pose with RANSAC
@@ -130,10 +199,8 @@ def processFrame(I1, I0, S0:VO_state) -> Tuple[VO_state, pose]:
     return S1, T1_WC
 
 def main() -> None:
-    K = np.loadtxt(K_PATH)  # Get K (hardcoded to dataset)
-
     # Bootstrap
-    for img_idx, img_path in enumerate(sorted(DS_GLOB)):
+    for img_idx, img_path in enumerate(DS_GLOB):
         if img_idx == 0:
             I0 = cv2.imread( img_path )
 
@@ -142,18 +209,24 @@ def main() -> None:
             break
 
     bootstrapped_state = initialiseVO(I1, I0)
+    print(bootstrapped_state.P)
+    print(bootstrapped_state.X)
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
 
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
+    prev_frame = I0
 
-    for img_path in enumerate(sorted(DS_GLOB)):
+    for img_path in DS_GLOB[1:]:
         frame = cv2.imread(img_path)
 
-        state, T_WC = processFrame(frame, prev_state) # continuous VO markov chain
+        state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
+
         prev_state = state # set current state to previous state for next image
+        prev_frame = frame
+
         odom.append(T_WC) # append current pose to odom list
 
         # ~ Press Q on keyboard to exit (for debugging)

@@ -1,43 +1,52 @@
 import numpy as np
+from typing import Tuple
 
+def vec_to_cross_mat(v:np.ndarray)->np.ndarray:
+    '''Convert 3-vector to a 3x3 cross product matrix'''
+    return np.array(
+        [[    0, -v[2],  v[1]],
+            [ v[2],     0, -v[0]],
+            [-v[1],  v[0],    0]]
+    )
 
-def cross2Matrix(x):
-    """ Antisymmetric matrix corresponding to a 3-vector
-     Computes the antisymmetric matrix M corresponding to a 3-vector x such
-     that M*y = cross(x,y) for all 3-vectors y.
+def normalise_2d_pts(pts:np.ndarray)->Tuple[np.ndarray, np.ndarray]:
+    '''
+    Normalize 2d homogenous points
 
-     Input: 
-       - x np.ndarray(3,1) : vector
+    Function translates and normalises a set of 2D homogeneous points
+    so that their centroid is at the origin and their mean distance from
+    the origin is sqrt(2).
 
-     Output: 
-       - M np.ndarray(3,3) : antisymmetric matrix
-    """
-    M = np.array([[0,   -x[2], x[1]], 
-                  [x[2],  0,  -x[0]],
-                  [-x[1], x[0],  0]])
-    return M
+    Usage:   [pts_tilde, T] = normalise2dpts(pts)
 
+    Argument:
+    pts -  3xN array of 2D homogeneous coordinates
 
+    Returns:
+    pts_tilde -  3xN array of transformed 2D homogeneous coordinates.
+    T         -  The 3x3 transformation matrix, pts_tilde = T*pts
+    '''
+    # Convert homogeneous coordinates to Euclidean coordinates (pixels)
+    pts_ = pts/pts[2,:]
 
-def distPoint2EpipolarLine(F, p1, p2):
-    """ Compute the point-to-epipolar-line distance
+    # Centroid (Euclidean coordinates)
+    mu = np.mean(pts_[:2,:], axis = 1)
 
-       Input:
-       - F np.ndarray(3,3): Fundamental matrix
-       - p1 np.ndarray(3,N): homogeneous coords of the observed points in image 1
-       - p2 np.ndarray(3,N): homogeneous coords of the observed points in image 2
+    # Use RMS distance (another option is Average distance)
+    pts_centered = (pts_[:2,:].T - mu).T
 
-       Output:
-       - cost: sum of squared distance from points to epipolar lines
-               normalized by the number of point coordinates
-    """
+    # Option 1: RMS distance
+    sigma = np.sqrt( np.mean( np.sum(pts_centered**2, axis = 0) ) )
 
-    N = p1.shape[1]
+    # Option 2: average distance
+    # sigma = mean( sqrt(sum(pts_centered.^2)) );
 
-    homog_points = np.c_[p1, p2]
-    epi_lines = np.c_[F.T @ p2, F @ p1]
+    s = np.sqrt(2) / sigma
+    T = np.array([
+        [s, 0, -s * mu[0]],
+        [0, s, -s * mu[1]],
+        [0, 0, 1]])
 
-    denom = epi_lines[0,:]**2 + epi_lines[1,:]**2
-    cost = np.sqrt( np.sum( np.sum( epi_lines * homog_points, axis = 0)**2 / denom) / N)
+    pts_tilde = T @ pts_
 
-    return cost
+    return pts_tilde, T

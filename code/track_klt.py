@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 
 from scipy.signal import convolve2d
 
-from get_sim_warp import getSimWarp
-from get_warped_patch import getWarpedPatch
+from code.get_sim_warp import getSimWarp
+from code.get_warped_patch import getWarpedPatch
 
 def trackKLT(I_R, I, x_T, r_T, n_iter):
     """ 
