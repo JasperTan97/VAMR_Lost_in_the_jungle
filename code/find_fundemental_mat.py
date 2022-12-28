@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List
 
-from constants import RANSAC_REPROJ_THRESHOLD, RANSAC_NUM_ITS
+from code.constants import RANSAC_REPROJ_THRESHOLD, RANSAC_NUM_ITS
 from code.utils import normalise_2d_pts
 
 def findFundementalMat(

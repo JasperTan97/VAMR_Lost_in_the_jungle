@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict
 from code.KLT_main import KLT
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
-from code.linear_triangulation import linearTriangulation
+# from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
 
 # Constants for tunable parameters
 from code.constants import *
@@ -57,20 +57,8 @@ class VO_state:
         assert P.shape[-1] == X.shape[-1], f"P (shape {P.shape}) and X (shape {X.shape}) have diff lengths"
         assert P.shape[0] == 3, "P are the homogenous pixel correspondences, it should have structure (u,v,1)"
         assert X.shape[0] == 4, "X are the homogenous 3d point correspondences, it should have structure (x,y,z,1)"
-        self.P = P
-        self.X = X
-
-        if C is None or F is None or T is None:
-            self.C = []
-            self.F = []
-            self.T = []
-        else:
-            assert len(C) == len(F)
-            assert len(C) == len(T)
-            # TODO initialize C, F, T in an appropriate data structure
-            self.C = C
-            self.F = F
-            self.T = T
+        assert len(C) == len(F)
+        assert len(C) == len(T)
 
 def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
     if method == "SIFT":
