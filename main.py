@@ -101,7 +101,7 @@ def initialiseVO(I) -> VO_state:
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
     kp1, kp0, kp0 = KLT_bootstraping(kp0, kp0, I[1], I[0])
-    kptemp = kp0
+    kptemp = kp1
     for i in range(len(I)-2):
         kp1, kptemp, kp0 = KLT_bootstraping(kp0, kptemp, I[i+2], I[i+1])
     pts0 = kp0
