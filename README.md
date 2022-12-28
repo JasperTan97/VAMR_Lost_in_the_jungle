@@ -33,10 +33,10 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 - [X] Gonna do KLT LOL
  - I will presume it will work
 - [X] Feature detection
+- [X] Feature matching
 
 ### Abhiram
 - Bootstrapping
-    - [ ] Feature matching
 
 ### Adarsh
 - [ ] firstObservationTracker
