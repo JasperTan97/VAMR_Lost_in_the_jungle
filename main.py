@@ -191,15 +191,19 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
 
 def main() -> None:
     # Bootstrap
+    I = []
     for img_idx, img_path in enumerate(DS_GLOB):
-        if img_idx == 0:
-            I0 = cv2.imread( img_path )
+        # if img_idx == 0:
+        #     I0 = cv2.imread( img_path )
 
-        if img_idx == BOOTSTRAP_FRAME:
-            I1 = cv2.imread( img_path )
-            break
+        # if img_idx == BOOTSTRAP_FRAME:
+        #     I1 = cv2.imread( img_path )
+        #     break
+        if img_idx <= BOOTSTRAP_FRAME:
+            I.append(cv2.imread( img_path ))
+    I0 = I[0]
 
-    bootstrapped_state = initialiseVO(I1, I0)
+    bootstrapped_state = initialiseVO(I)
     print(bootstrapped_state.P)
     print(bootstrapped_state.X)
 
