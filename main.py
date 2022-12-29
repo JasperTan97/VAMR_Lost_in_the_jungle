@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 from typing import List, Tuple, Dict
 
@@ -62,7 +64,7 @@ class VO_state:
 
 def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
     if method == "SIFT":
-        return SIFT(image, ROTATION_INVARIANT, CONTRAST_THRESHOLD, SIFT_SIGMA, NUM_SCALES, NUM_OCTAVES)
+        return SIFT(image, ROTATION_INVARIANT, CONTRAST_THRESHOLD, RESCALE_FACTOR, SIFT_SIGMA, NUM_SCALES, NUM_OCTAVES)
 
 # def triangulation(p0: np.ndarray, p1: np.ndarray, R: np.ndarray, T: np.ndarray) -> np.ndarray:
 #     # Perform triangulation
@@ -98,14 +100,43 @@ def initialiseVO(I) -> VO_state:
     #kp1, des1 = featureDetection(I1)
     kp0, des0 = featureDetection(I[0])
 
+    """ for checking
+    keypoints = np.flipud(kp0[:50,:].T)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.imshow(I[0], cmap='gray', vmin=0, vmax=255 )
+    ax.plot(keypoints[0, :], keypoints[1, :], 'rx')
+    plt.pause(0.1)
+    #ax.lines = []
+    """
+
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
     kp1, kp0, kp0 = KLT_bootstraping(kp0, kp0, I[1], I[0])
     kptemp = kp1
+    
     for i in range(len(I)-2):
         kp1, kptemp, kp0 = KLT_bootstraping(kp0, kptemp, I[i+2], I[i+1])
+        """ for checking
+        ax.imshow(I[i+2], cmap='gray', vmin=0, vmax=255)
+        keypoints_ud = np.flipud(kp1)
+        kpold_ud = np.flipud(kptemp)
+        x_from = keypoints_ud[0, :]
+        x_to = kpold_ud[0,:]
+        y_from = keypoints_ud[1, :]
+        y_to = kpold_ud[1,:]
+        #ax.lines = []
+        ax.plot(np.r_[y_from[np.newaxis, :], y_to[np.newaxis,:]], 
+                np.r_[x_from[np.newaxis,:], x_to[np.newaxis,:]], 'g-',
+                linewidth=3)
+        ax.set_xlim([0, I[i+2].shape[1]])
+        ax.set_ylim([I[i+2].shape[0], 0])
+        """
     pts0 = kp0
     pts1 = kp1
+
+
+    """
     # # create BFMatcher object
     # bf = cv2.BFMatcher(normType=cv2.NORM_L2, crossCheck=False)
     # # Match descriptors
@@ -124,6 +155,7 @@ def initialiseVO(I) -> VO_state:
     # for m, n in matches:
     #     if m.distance < 0.8*n.distance or n.distance < 0.8*m.distance:
     #         good_matches.append([m])    # Visualisation requires list of match objects
+    """
 
     # 3. Get Fundemental matrix
     # pts0 = np.array([kp0[x[0].queryIdx].pt for x in good_matches])
@@ -193,14 +225,10 @@ def main() -> None:
     # Bootstrap
     I = []
     for img_idx, img_path in enumerate(DS_GLOB):
-        # if img_idx == 0:
-        #     I0 = cv2.imread( img_path )
-
-        # if img_idx == BOOTSTRAP_FRAME:
-        #     I1 = cv2.imread( img_path )
-        #     break
         if img_idx <= BOOTSTRAP_FRAME:
-            I.append(cv2.imread( img_path ))
+            I0 = cv2.imread( img_path )
+            img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
+            I.append(img0_gray)
     I0 = I[0]
 
     bootstrapped_state = initialiseVO(I)

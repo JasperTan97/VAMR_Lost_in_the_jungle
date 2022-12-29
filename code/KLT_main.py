@@ -20,19 +20,23 @@ def KLT_bootstraping(kpt_original, keypoints, I, I_prev):
         keypoints           np.ndarray, m x 2, of m new points
     """ 
 
+    keypoints = keypoints.T
+    kpt_original = kpt_original.T
     dkp = np.zeros_like(keypoints)
     # dkp = []
     keep = np.ones((keypoints.shape[1],)).astype('bool')
     for j in range(keypoints.shape[1]):
         kptd, k = trackKLTRobustly(I_prev, I, keypoints[:,j].T, R_T, KLT_N_ITER, KLT_THRESHOLD)
-        if k:
-            dkp.append(kptd)
         dkp[:, j] = kptd
         keep[j] = k
     kpold = keypoints[:, keep]
     kpt_original = kpt_original[:, keep]
     keypoints = keypoints + dkp
     keypoints = keypoints[:, keep]
+
+    keypoints = keypoints.T
+    kpold = kpold.T
+    kpt_original = kpt_original.T
 
     return keypoints, kpold, kpt_original
 
@@ -49,18 +53,16 @@ def KLT(keypoints, I, I_prev) -> np.ndarray:
     Output:
         keypoints         np.ndarray, m x 2, of m new points
     """ 
-
+    keypoints = keypoints.T
     dkp = np.zeros_like(keypoints)
     # dkp = []
     keep = np.ones((keypoints.shape[1],)).astype('bool')
     for j in range(keypoints.shape[1]):
         kptd, k = trackKLTRobustly(I_prev, I, keypoints[:,j].T, R_T, KLT_N_ITER, KLT_THRESHOLD)
-        if k:
-            dkp.append(kptd)
         dkp[:, j] = kptd
         keep[j] = k
     # kpold = keypoints[:, keep]
     keypoints = keypoints + dkp
     keypoints = keypoints[:, keep]
-
+    keypoints = keypoints.T
     return keypoints
