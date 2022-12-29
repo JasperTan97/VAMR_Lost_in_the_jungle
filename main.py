@@ -55,12 +55,17 @@ class VO_state:
                 C: np.ndarray=None,
                 F: np.ndarray=None,
                 T: np.ndarray=None) -> None:
-
+        self.P = P
+        self.X = X
+        self.C = C
+        self.F = F
+        self.T = T
         assert P.shape[-1] == X.shape[-1], f"P (shape {P.shape}) and X (shape {X.shape}) have diff lengths"
         assert P.shape[0] == 3, "P are the homogenous pixel correspondences, it should have structure (u,v,1)"
         assert X.shape[0] == 4, "X are the homogenous 3d point correspondences, it should have structure (x,y,z,1)"
-        assert len(C) == len(F)
-        assert len(C) == len(T)
+        if C is not None:
+            assert len(C) == len(F)
+            assert len(C) == len(T)
 
 def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
     if method == "SIFT":
@@ -85,6 +90,7 @@ def initialiseVO(I) -> VO_state:
 
     Initializes
     '''
+    """
     # 1. Feature detection and descriptor generation
     # img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
     # img1_gray = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
@@ -96,19 +102,18 @@ def initialiseVO(I) -> VO_state:
     # # des is the descriptor, in this case a 128-long numpy float array.
     # kp0, des0 = sift.detectAndCompute(img0_gray, None)
     # kp1, des1 = sift.detectAndCompute(img1_gray, None)
-
+    """
     #kp1, des1 = featureDetection(I1)
     kp0, des0 = featureDetection(I[0])
 
-    """ for checking
+    # """ for checking
     keypoints = np.flipud(kp0[:50,:].T)
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.imshow(I[0], cmap='gray', vmin=0, vmax=255 )
     ax.plot(keypoints[0, :], keypoints[1, :], 'rx')
     plt.pause(0.1)
-    #ax.lines = []
-    """
+    # """
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
@@ -117,7 +122,7 @@ def initialiseVO(I) -> VO_state:
     
     for i in range(len(I)-2):
         kp1, kptemp, kp0 = KLT_bootstraping(kp0, kptemp, I[i+2], I[i+1])
-        """ for checking
+        # """ for checking
         ax.imshow(I[i+2], cmap='gray', vmin=0, vmax=255)
         keypoints_ud = np.flipud(kp1)
         kpold_ud = np.flipud(kptemp)
@@ -125,13 +130,12 @@ def initialiseVO(I) -> VO_state:
         x_to = kpold_ud[0,:]
         y_from = keypoints_ud[1, :]
         y_to = kpold_ud[1,:]
-        #ax.lines = []
         ax.plot(np.r_[y_from[np.newaxis, :], y_to[np.newaxis,:]], 
                 np.r_[x_from[np.newaxis,:], x_to[np.newaxis,:]], 'g-',
                 linewidth=3)
         ax.set_xlim([0, I[i+2].shape[1]])
         ax.set_ylim([I[i+2].shape[0], 0])
-        """
+        # """
     pts0 = kp0
     pts1 = kp1
 
@@ -232,8 +236,8 @@ def main() -> None:
     I0 = I[0]
 
     bootstrapped_state = initialiseVO(I)
-    print(bootstrapped_state.P)
-    print(bootstrapped_state.X)
+    # print(bootstrapped_state.P)
+    # print(bootstrapped_state.X)
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
