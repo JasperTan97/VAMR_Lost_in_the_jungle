@@ -20,8 +20,6 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 
 ## Task allocation
 ### TY
-- [ ] Investigate OpenCV functions
-  - [ ] PNP RANSAC
   - [x] Find Fundemental Matrix (5/8 point RANSAC)
     - [x] Extract R,T
 - [x] Open and process dataset
@@ -36,7 +34,8 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 - [X] Feature matching
 
 ### Abhiram
-- Bootstrapping
+- [X] Investigate OpenCV functions
+  - [X] PNP RANSAC
 
 ### Adarsh
 - [ ] firstObservationTracker
