@@ -35,4 +35,3 @@ def SIFT(image, rotation_invariant, contrast_threshold, rescale_factor, sift_sig
     #print("Returning")
     locs[:, [1, 0]] = locs[:, [0, 1]]
     return locs, desc
-
