@@ -33,5 +33,6 @@ def SIFT(image, rotation_invariant, contrast_threshold, rescale_factor, sift_sig
     #print("Starting Descriptors with ", len(blurred_images), blurred_images[0].shape, len(tmp_keypoint_locs), tmp_keypoint_locs[0].shape)
     desc, locs = computeDescriptors(blurred_images, tmp_keypoint_locs, rotation_invariant)
     #print("Returning")
+    locs[:, [1, 0]] = locs[:, [0, 1]]
     return locs, desc
 

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from typing import List, Tuple, Dict
 
-from code.KLT_main import KLT, KLT_bootstraping
+from code.KLT_main import *
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
@@ -103,38 +103,85 @@ def initialiseVO(I) -> VO_state:
     # kp0, des0 = sift.detectAndCompute(img0_gray, None)
     # kp1, des1 = sift.detectAndCompute(img1_gray, None)
     """
-    #kp1, des1 = featureDetection(I1)
+    
     kp0, des0 = featureDetection(I[0])
+    
+    """ to test SIFT
+    kp1, des1 = featureDetection(I[1])
+    keypoint_locations = [kp0, kp1]
+    keypoint_descriptors = [des0, des1]
 
+    bf = cv2.BFMatcher()
+    matches = bf.knnMatch(keypoint_descriptors[0].astype(np.float32), keypoint_descriptors[1].astype(np.float32), 2)
+
+    # Apply ratio test
+    good = []
+    for m,n in matches:
+        if m.distance < 0.8*n.distance or n.distance < 0.8*m.distance:
+            good.append(m)
+
+    plt.figure()
+    dh = int(I[1].shape[0] - I[0].shape[0])
+    top_padding = int(dh/2)
+    img1_padded = cv2.copyMakeBorder(I[0], top_padding, dh - int(dh/2),
+            0, 0, cv2.BORDER_CONSTANT, 0)
+    plt.imshow(np.c_[img1_padded, I[1]], cmap = "gray")
+
+    for match in good:
+        img1_idx = match.queryIdx
+        img2_idx = match.trainIdx
+        x1 = keypoint_locations[0][img1_idx,1]
+        y1 = keypoint_locations[0][img1_idx,0] + top_padding
+        x2 = keypoint_locations[1][img2_idx,1] + I[1].shape[1]
+        y2 = keypoint_locations[1][img2_idx,0]
+        plt.plot(np.array([x1, x2]), np.array([y1, y2]), "o-")
+    plt.show()
+
+    return
+    """
+    
     # """ for checking
-    keypoints = np.flipud(kp0[:50,:].T)
+    #keypoints = np.flipud(kp0[:50,:].T)
     fig = plt.figure()
-    ax = fig.add_subplot(111)
+    ax = fig.add_subplot(1,1,1)
     ax.imshow(I[0], cmap='gray', vmin=0, vmax=255 )
-    ax.plot(keypoints[0, :], keypoints[1, :], 'rx')
-    plt.pause(0.1)
+    ax.plot(kp0[:, 0], kp0[:, 1], 'rx')
+    plt.pause(2)
     # """
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
-    kp1, kp0, kp0 = KLT_bootstraping(kp0, kp0, I[1], I[0])
-    kptemp = kp1
-    
+    #print(kp0[0:10])
+    #print(I[1].shape)
+    kp1, kp0 = KLT_bootstrapping_CV2(kp0, kp0, I[1], I[0])
+    #print(kp1[0:10])
+    #kptemp = kp1
+    #print(kp1.shape, kp0.shape)
     for i in range(len(I)-2):
-        kp1, kptemp, kp0 = KLT_bootstraping(kp0, kptemp, I[i+2], I[i+1])
+        plt.clf()
+        plt.close(fig)
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        kp1, kp0 = KLT_bootstrapping_CV2(kp1, kp0, I[i+2], I[i+1])
+        #print(kp1[0:10])
         # """ for checking
         ax.imshow(I[i+2], cmap='gray', vmin=0, vmax=255)
-        keypoints_ud = np.flipud(kp1)
-        kpold_ud = np.flipud(kptemp)
-        x_from = keypoints_ud[0, :]
-        x_to = kpold_ud[0,:]
-        y_from = keypoints_ud[1, :]
-        y_to = kpold_ud[1,:]
-        ax.plot(np.r_[y_from[np.newaxis, :], y_to[np.newaxis,:]], 
-                np.r_[x_from[np.newaxis,:], x_to[np.newaxis,:]], 'g-',
-                linewidth=3)
+        # keypoints_ud = np.flipud(kp1).T
+        # kpold_ud = np.flipud(kp0).T
+        # print(keypoints_ud.shape, kpold_ud.shape)
+        # x_from = keypoints_ud[0, :]
+        # x_to = kpold_ud[0,:]
+        # y_from = keypoints_ud[1, :]
+        # y_to = kpold_ud[1,:]
+        # ax.plot(np.r_[x_from[np.newaxis, :], x_to[np.newaxis,:]], 
+        #         np.r_[y_from[np.newaxis,:], y_to[np.newaxis,:]], 'g-',
+        #         linewidth=3)
+        ax.plot(kp1[:, 0], kp1[:, 1], 'rx')
+        print(kp1.shape)
         ax.set_xlim([0, I[i+2].shape[1]])
         ax.set_ylim([I[i+2].shape[0], 0])
+        plt.pause(0.5)
+    plt.show()
         # """
     pts0 = kp0
     pts1 = kp1
@@ -241,7 +288,8 @@ def main() -> None:
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
-
+    print("Bootstrap done")
+    return
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
     prev_frame = I0

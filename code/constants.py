@@ -1,6 +1,6 @@
 from numpy import log
 
-BOOTSTRAP_FRAME = 5
+BOOTSTRAP_FRAME = 20
 
 RANSAC_REPROJ_THRESHOLD = 0.01  # Reprojection error tolerated for RANSAC to consider it an inlier
                                 # Value copied from MATLAB
@@ -28,5 +28,5 @@ NUM_OCTAVES = 5                 # number of octaves
 # KLT #
 #######
 R_T = 15                        # scalar, radius of patch to track
-KLT_N_ITER = 50                     # scalar, number of iterations
-KLT_THRESHOLD = 0.1                 # scalar, bidirectional error threshold
+KLT_N_ITER = 10                     # scalar, number of iterations
+KLT_THRESHOLD = 0.03                 # scalar, bidirectional error threshold
