@@ -8,7 +8,7 @@ from compute_difference_of_gaussians import computeDifferenceOfGaussians
 from compute_image_pyramid import computeImagePyramid 
 from extract_keypoints import extractKeypoints
 
-def main(image, rotation_invariant, contrast_threshold, sift_sigma, 
+def SIFT(image, rotation_invariant, contrast_threshold, sift_sigma, 
         num_scales, num_octaves):
 
     '''
