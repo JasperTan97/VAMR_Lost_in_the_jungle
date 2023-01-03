@@ -6,13 +6,15 @@ def computeBlurredImages(image_pyramid, num_scales, sift_sigma):
     imgs_per_oct = num_scales + 3
     
     blurred_images = []
+    # print("SHAPE: ", len(image_pyramid),image_pyramid[0].shape)
     for oct_idx, img in enumerate(image_pyramid):
         octave_stack = np.zeros(np.r_[img.shape, imgs_per_oct])
         for stack_idx in range(imgs_per_oct):
             gauss_blur_sigma = sift_sigma * 2**((stack_idx-1)/num_scales)
             filter_size = int(2*np.ceil(2*gauss_blur_sigma)+1.0)
+            #print("SHAPE ", octave_stack.shape, cv2.GaussianBlur(img, (filter_size,filter_size), gauss_blur_sigma).shape, img.shape)
             octave_stack[:, :, stack_idx] = \
-                    cv2.GaussianBlur(img, (filter_size,filter_size), gauss_blur_sigma)
+                    cv2.GaussianBlur(img, (filter_size,filter_size), gauss_blur_sigma) 
         blurred_images.append(octave_stack)
     
     return blurred_images

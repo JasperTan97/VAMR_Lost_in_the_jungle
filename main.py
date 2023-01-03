@@ -1,9 +1,11 @@
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+
 
 from typing import List, Tuple, Dict
 
-from code.KLT_main import KLT
+from code.KLT_main import *
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
@@ -53,16 +55,56 @@ class VO_state:
                 C: np.ndarray=None,
                 F: np.ndarray=None,
                 T: np.ndarray=None) -> None:
-
+        self.P = P
+        self.X = X
+        self.C = C
+        self.F = F
+        self.T = T
         assert P.shape[-1] == X.shape[-1], f"P (shape {P.shape}) and X (shape {X.shape}) have diff lengths"
         assert P.shape[0] == 3, "P are the homogenous pixel correspondences, it should have structure (u,v,1)"
         assert X.shape[0] == 4, "X are the homogenous 3d point correspondences, it should have structure (x,y,z,1)"
-        assert len(C) == len(F)
-        assert len(C) == len(T)
+        if C is not None:
+            assert len(C) == len(F)
+            assert len(C) == len(T)
 
-def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
-    if method == "SIFT":
-        return SIFT(image, ROTATION_INVARIANT, CONTRAST_THRESHOLD, SIFT_SIGMA, NUM_SCALES, NUM_OCTAVES)
+def feature_detect_describe(image, detector="SIFT", descriptor=None) -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
+    '''
+    Given an image, returns:
+    - Keypoint locations (N x 2 ndarray)
+    - Keypoint descriptors (N x K ndarray, where K is the dimensionality of the descriptor chosen)
+
+    Valid Detectors:
+    - "SIFT"
+    - "harris"
+
+    Valid Descriptors:
+    - Choosing "SIFT" returns SIFT descriptors
+    - None
+    '''
+
+    if detector == "SIFT":
+        return SIFT(image, ROTATION_INVARIANT, CONTRAST_THRESHOLD, RESCALE_FACTOR, SIFT_SIGMA, NUM_SCALES, NUM_OCTAVES)
+    elif detector == "harris":
+        # Dst is the response map from Harris detector
+        dst = cv2.cornerHarris(image, HARRIS_BLOCK_SIZE, HARRIS_K_SIZE, HARRIS_K)
+
+        # Select the N_KPTS best keypoints
+        kps = np.zeros((HARRIS_N_KPTS, 2))
+        r = HARRIS_R
+        temp_scores = np.pad(dst, [(r, r), (r, r)], mode='constant', constant_values=0)
+
+        for i in range(HARRIS_N_KPTS):
+            kp = np.unravel_index(temp_scores.argmax(), temp_scores.shape)
+            kps[i, :] = np.array(kp) - r
+            temp_scores[(kp[0] - r):(kp[0] + r + 1), (kp[1] - r):(kp[1] + r + 1)] = 0
+
+    if descriptor is None:
+        kps[:, [1, 0]] = kps[:, [0, 1]]
+        return kps, None
+
+    else:
+        raise NotImplementedError(f"Descriptor {descriptor} has not been implemented.")
+
 
 # def triangulation(p0: np.ndarray, p1: np.ndarray, R: np.ndarray, T: np.ndarray) -> np.ndarray:
 #     # Perform triangulation
@@ -77,60 +119,58 @@ def featureDetection(image, method="SIFT") -> Tuple[np.ndarray, np.ndarray]: # r
 #     X_4byN = linearTriangulation(p0.T, p1.T, M0, M1)
 #     return np.delete(X_4byN, -1, 0).T # returns Nx3 array of world coordinates
 
-def get_R_T():
-    raise NotImplementedError
-
-def initialiseVO(I1, I0) -> VO_state:
+def initialiseVO(I) -> VO_state:
     '''
     Bootstrapping
-
-    Initializes
     '''
-    # 1. Feature detection and descriptor generation
-    # img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
-    # img1_gray = cv2.cvtColor(I1, cv2.COLOR_BGR2GRAY)
-    # # Initialize SIFT detector
-    # sift = cv2.SIFT_create()
-    # # Compute SIFT keypoints and descriptors
-    # # kp is a cv2.keypoint object. Access pixel values with kp_.pt
-    # # Ref: https://docs.opencv.org/4.x/d2/d29/classcv_1_1KeyPoint.html
-    # # des is the descriptor, in this case a 128-long numpy float array.
-    # kp0, des0 = sift.detectAndCompute(img0_gray, None)
-    # kp1, des1 = sift.detectAndCompute(img1_gray, None)
 
-    kp1, des1 = featureDetection(I1)
-    kp0, des0 = featureDetection(I0)
+    kp0, _ = feature_detect_describe(I[0], detector="harris")
+
+    """ for checking
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.imshow(I[0], cmap='gray', vmin=0, vmax=255 )
+    ax.plot(kp0[:, 0], kp0[:, 1], 'rx')
+    plt.pause(2)
+    """
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
+    kp1, kp0 = KLT_bootstrapping_CV2(kp0, kp0, I[1], I[0])
 
-    # create BFMatcher object
-    bf = cv2.BFMatcher(normType=cv2.NORM_L2, crossCheck=False)
-    # Match descriptors
-    matches = bf.knnMatch(des0, des1, k=2)
-    # knnMatch returns tuple of 2 nearest matches
-    # print(len(matches))
-    # print([f"{m.trainIdx}->{m.queryIdx}:{m.distance}; {n.trainIdx}->{n.queryIdx}:{n.distance}" for m, n in matches[:10]])
-    # Ref: https://docs.opencv.org/4.x/d4/de0/classcv_1_1DMatch.html
-    # the query index is from the 1st arg (in this case des0)
-    # the train index is from the 2nd arg (in this case des1)
-
-    # Apply ratio test
-    good_matches = []
-    # m is the best match, n is the second-best.
-    # Access the distance between matches using <>.distance
-    for m, n in matches:
-        if m.distance < 0.8*n.distance or n.distance < 0.8*m.distance:
-            good_matches.append([m])    # Visualisation requires list of match objects
+    for i in range(len(I)-2):
+        kp1, kp0 = KLT_bootstrapping_CV2(kp1, kp0, I[i+2], I[i+1])
+        """ for checking
+        plt.clf()
+        plt.close(fig)
+        fig = plt.figure()
+        ax = fig.add_subplot(1,1,1)
+        
+        #print(kp1[0:10])
+       
+        ax.imshow(I[i+2], cmap='gray', vmin=0, vmax=255)
+        # keypoints_ud = np.flipud(kp1).T
+        # kpold_ud = np.flipud(kp0).T
+        # print(keypoints_ud.shape, kpold_ud.shape)
+        # x_from = keypoints_ud[0, :]
+        # x_to = kpold_ud[0,:]
+        # y_from = keypoints_ud[1, :]
+        # y_to = kpold_ud[1,:]
+        # ax.plot(np.r_[x_from[np.newaxis, :], x_to[np.newaxis,:]], 
+        #         np.r_[y_from[np.newaxis,:], y_to[np.newaxis,:]], 'g-',
+        #         linewidth=3)
+        ax.plot(kp1[:, 0], kp1[:, 1], 'rx')
+        print(kp1.shape)
+        ax.set_xlim([0, I[i+2].shape[1]])
+        ax.set_ylim([I[i+2].shape[0], 0])
+        plt.pause(0.5)
+    plt.show()
+        """
 
     # 3. Get Fundemental matrix
-    pts0 = np.array([kp0[x[0].queryIdx].pt for x in good_matches])
-    pts1 = np.array([kp1[x[0].trainIdx].pt for x in good_matches])
-
-    # pts0 and pts1 are Nx2 Numpy arrays containing the pixel coords of the matches.
+    # kp0 and kp1 are Nx2 Numpy arrays containing the pixel coords of the matches.
     F, _ = cv2.findFundamentalMat(
-        pts0, 
-        pts1,
+        kp0, kp1,
         method=cv2.FM_RANSAC, 
         ransacReprojThreshold=RANSAC_REPROJ_THRESHOLD,
         confidence=RANSAC_PROB_SUCCESS,
@@ -138,24 +178,19 @@ def initialiseVO(I1, I0) -> VO_state:
     )
 
     # Essential Matrix
-    E = np.linalg.inv(K.T) @ F @ np.linalg.inv(K)
+    E = K.T @ F @ K
 
     # Convert points format for OpenCV into 3xN homogenous pixel coordinates
-    points0 = np.vstack([pts0.T, np.ones((1, pts0.shape[0]))])
-    points1 = np.vstack([pts1.T, np.ones((1, pts1.shape[0]))])
+    points0 = np.vstack([kp0.T, np.ones((1, kp0.shape[0]))])
+    points1 = np.vstack([kp1.T, np.ones((1, kp1.shape[0]))])
 
     # Get R, T, X out of E matrix
     # X is a byproduct of disambiguating the possibilities in R, T
-    _, _, X0 = get_relative_pose(
-        points0,
-        points1,
-        E, K
+    R, T, X0 = get_relative_pose(
+        points0, points1, E, K
     )
-    # print(f"Points: {points0.shape}, 3D: {X0.shape}")
 
-    # triangulation already done in 3. Removed 4. triangulation
-
-    # 5. Bundle adjustment to refine R, T, X0
+    # 4. Bundle adjustment to refine R, T, X0
     # TODO figure this out
 
     return VO_state(P=points0, X=X0)
@@ -174,36 +209,39 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     F0 = S0.F 
     T0 = S0.T # unpack state i-1
 
-    P1 = KLT(P0, I1, I0) # tracks P0 features in I1
+    P1 = KLT_CV2(P0, I1, I0) # tracks P0 features in I1
     X1 = removeLostPoints(P0, X0, P1) # Update X1 from P1 and X0
     R1, T1 = PnPRansac(P1, X1) # Get current pose with RANSAC
     T1_WC = np.hstack((R1, T1)) # Get transformation matrix in SE3 (without bottom row)
-    C1 = KLT(C0, I1, I0) # track C0 features in I1
+    C1 = KLT_CV2(C0, I1, I0) # track C0 features in I1
     C1 = featureDectection(I1,C1,P1) # Add new features to keep C1 from shrinking
     F1 = firstObservationTracker(C0, F0, C1) # update F1 with C1
     T1 = cameraPoseMappedTo_c(C0, T0, C1) # update T1 with C1
     P1, X1, C1, F1, T1 = TriangulateProMaxPlusUltra(P1, X1, C1, F1, T1) # Add new points to pointcloud in P1, updates X1 accordingly, removes those points from C1, F1, and T1
     S1 = (P1, X1, C1, F1, T1) # repack state i
-    
+
     return S1, T1_WC
 
 def main() -> None:
+    np.set_printoptions(precision=3, suppress=True)
+
     # Bootstrap
+    I = []
     for img_idx, img_path in enumerate(DS_GLOB):
-        if img_idx == 0:
+        if img_idx <= BOOTSTRAP_FRAME:
             I0 = cv2.imread( img_path )
+            img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
+            I.append(img0_gray)
+    I0 = I[0]
 
-        if img_idx == BOOTSTRAP_FRAME:
-            I1 = cv2.imread( img_path )
-            break
-
-    bootstrapped_state = initialiseVO(I1, I0)
-    print(bootstrapped_state.P)
-    print(bootstrapped_state.X)
+    bootstrapped_state = initialiseVO(I)
+    # print(bootstrapped_state.P)
+    # print(bootstrapped_state.X)
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
-
+    print("Bootstrap done")
+    return
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
     prev_frame = I0
