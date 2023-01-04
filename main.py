@@ -8,6 +8,7 @@ from typing import List, Tuple, Dict
 from code.KLT_main import *
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
+from code.pnp_ransac_main import PnPransacCV
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
 
 # Constants for tunable parameters
@@ -64,8 +65,8 @@ class VO_state:
         assert P.shape[0] == 3, "P are the homogenous pixel correspondences, it should have structure (u,v,1)"
         assert X.shape[0] == 4, "X are the homogenous 3d point correspondences, it should have structure (x,y,z,1)"
         if C is not None:
-            assert len(C) == len(F)
-            assert len(C) == len(T)
+            assert C.shape[-1] == F.shape[-1]
+            assert C.shape[-1] == T.shape[-1]
 
 def feature_detect_describe(image, detector="SIFT", descriptor=None) -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
     '''
@@ -190,10 +191,16 @@ def initialiseVO(I) -> VO_state:
         points0, points1, E, K
     )
 
+    # Initialize C, F, T
+    C0 = points0
+    F0 = points0
+    pose_flattened = np.hstack([R.flatten(), T.flatten()])
+    T0 = np.hstack([pose_flattened.reshape(-1,1)]*points0.shape[-1])
+
     # 4. Bundle adjustment to refine R, T, X0
     # TODO figure this out
 
-    return VO_state(P=points0, X=X0)
+    return VO_state(P=points0, X=X0, C=C0, F=F0, T=T0)
 
 def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     '''
@@ -203,22 +210,28 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
 
     State unpacks to P,X,C,F,T, see VO_state class
     '''
+
     P0 = S0.P 
     X0 = S0.X 
     C0 = S0.C 
     F0 = S0.F 
     T0 = S0.T # unpack state i-1
 
-    P1 = KLT_CV2(P0, I1, I0) # tracks P0 features in I1
-    X1 = removeLostPoints(P0, X0, P1) # Update X1 from P1 and X0
-    R1, T1 = PnPRansac(P1, X1) # Get current pose with RANSAC
+    P1, inliers = KLT_CV2(P0.T[:,:-1].astype(np.float32), I1, I0) # tracks P0 features in I1
+    X1 = X0[:, inliers.astype(bool)] # Update X1 from P1 and X0
+    # print(X1.T[:,:-1].shape)
+    R1, T1 = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
     T1_WC = np.hstack((R1, T1)) # Get transformation matrix in SE3 (without bottom row)
-    C1 = KLT_CV2(C0, I1, I0) # track C0 features in I1
-    C1 = featureDectection(I1,C1,P1) # Add new features to keep C1 from shrinking
-    F1 = firstObservationTracker(C0, F0, C1) # update F1 with C1
-    T1 = cameraPoseMappedTo_c(C0, T0, C1) # update T1 with C1
-    P1, X1, C1, F1, T1 = TriangulateProMaxPlusUltra(P1, X1, C1, F1, T1) # Add new points to pointcloud in P1, updates X1 accordingly, removes those points from C1, F1, and T1
-    S1 = (P1, X1, C1, F1, T1) # repack state i
+    C1, inliers_candidates = KLT_CV2(C0.T[:,:-1].astype(np.float32), I1, I0) # track C0 features in I1
+    F1 = F0[:, inliers_candidates.astype(bool)]
+    T1 = T0[:, inliers_candidates.astype(bool)]
+    # C1 = featureDectection(I1,C1,P1) # Add new features to keep C1 from shrinking
+    # F1 = firstObservationTracker(C0, F0, C1) # update F1 with C1
+    # T1 = cameraPoseMappedTo_c(C0, T0, C1) # update T1 with C1
+    # P1, X1, C1, F1, T1 = TriangulateProMaxPlusUltra(P1, X1, C1, F1, T1) # Add new points to pointcloud in P1, updates X1 accordingly, removes those points from C1, F1, and T1
+    P1 = np.vstack([P1.T, np.ones(P1.shape[0])])
+    C1 = np.vstack([C1.T, np.ones(C1.shape[0])])
+    S1 = VO_state(P=P1, X=X1, C=C1, F=F1, T=T1) # repack state i
 
     return S1, T1_WC
 
@@ -241,13 +254,13 @@ def main() -> None:
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
     print("Bootstrap done")
-    return
+    # return
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
     prev_frame = I0
 
     for img_path in DS_GLOB[1:]:
-        frame = cv2.imread(img_path)
+        frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
 

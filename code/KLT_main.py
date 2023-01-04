@@ -20,15 +20,16 @@ def KLT_bootstrapping_CV2(keypoints, kpt_original, I, I_prev):
     return keypoints, kpt_original
 
 def KLT_CV2(keypoints, I, I_prev):
+    keypoints = keypoints.astype(np.float32)
     lk_params = dict( winSize  = (R_T, R_T),
                   maxLevel = 2,
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, KLT_N_ITER, KLT_THRESHOLD))
-    p1, st, = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None, **lk_params)
+    p1, st, _ = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None, **lk_params)
     # kpold = keypoints[st==1]
     st = st.reshape(keypoints.shape[0])
     keypoints = p1[st==1,:]
 
-    return keypoints
+    return keypoints, st
 
 def KLT_bootstraping(keypoints, kpt_original, I, I_prev):
     """ 
