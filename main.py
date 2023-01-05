@@ -5,10 +5,14 @@ import matplotlib.pyplot as plt
 
 from typing import List, Tuple, Dict
 
+from ismember import ismember
+from scipy.spatial import distance_matrix
+
 from code.KLT_main import *
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 from code.pnp_ransac_main import PnPransacCV
+from code.triangulate_new import TriangulateNew
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
 
 # Constants for tunable parameters
@@ -126,14 +130,15 @@ def initialiseVO(I) -> VO_state:
     '''
 
     kp0, _ = feature_detect_describe(I[0], detector="harris")
+    candi_keypoints = np.copy(kp0)
 
-    """ for checking
-    fig = plt.figure()
-    ax = fig.add_subplot(1,1,1)
-    ax.imshow(I[0], cmap='gray', vmin=0, vmax=255 )
-    ax.plot(kp0[:, 0], kp0[:, 1], 'rx')
-    plt.pause(2)
-    """
+    # for checking
+    # fig = plt.figure()
+    # ax = fig.add_subplot(1,1,1)
+    # ax.imshow(I[0], cmap='gray', vmin=0, vmax=255 )
+    # ax.plot(kp0[:, 0], kp0[:, 1], 'rx')
+    # plt.pause(2)
+    
 
     # 2. Feature matching between I1, I0 features
     #    To obtain feature correspondences P0
@@ -141,15 +146,15 @@ def initialiseVO(I) -> VO_state:
 
     for i in range(len(I)-2):
         kp1, kp0 = KLT_bootstrapping_CV2(kp1, kp0, I[i+2], I[i+1])
-        """ for checking
-        plt.clf()
-        plt.close(fig)
-        fig = plt.figure()
-        ax = fig.add_subplot(1,1,1)
+        # for checking
+        # plt.clf()
+        # plt.close(fig)
+        # fig = plt.figure()
+        # ax = fig.add_subplot(1,1,1)
         
         #print(kp1[0:10])
        
-        ax.imshow(I[i+2], cmap='gray', vmin=0, vmax=255)
+        # ax.imshow(I[i+2], cmap='gray', vmin=0, vmax=255)
         # keypoints_ud = np.flipud(kp1).T
         # kpold_ud = np.flipud(kp0).T
         # print(keypoints_ud.shape, kpold_ud.shape)
@@ -160,13 +165,13 @@ def initialiseVO(I) -> VO_state:
         # ax.plot(np.r_[x_from[np.newaxis, :], x_to[np.newaxis,:]], 
         #         np.r_[y_from[np.newaxis,:], y_to[np.newaxis,:]], 'g-',
         #         linewidth=3)
-        ax.plot(kp1[:, 0], kp1[:, 1], 'rx')
-        print(kp1.shape)
-        ax.set_xlim([0, I[i+2].shape[1]])
-        ax.set_ylim([I[i+2].shape[0], 0])
-        plt.pause(0.5)
-    plt.show()
-        """
+    #     ax.plot(kp1[:, 0], kp1[:, 1], 'rx')
+    #     print(kp1.shape)
+    #     ax.set_xlim([0, I[i+2].shape[1]])
+    #     ax.set_ylim([I[i+2].shape[0], 0])
+    #     plt.pause(0.5)
+    # plt.show()
+        
 
     # 3. Get Fundemental matrix
     # kp0 and kp1 are Nx2 Numpy arrays containing the pixel coords of the matches.
@@ -192,15 +197,24 @@ def initialiseVO(I) -> VO_state:
     )
 
     # Initialize C, F, T
-    C0 = points0
-    F0 = points0
-    pose_flattened = np.hstack([R.flatten(), T.flatten()])
-    T0 = np.hstack([pose_flattened.reshape(-1,1)]*points0.shape[-1])
+    candi_kp, _ = feature_detect_describe(I[BOOTSTRAP_FRAME], detector="harris") # All features in the Bootstrap frame
+    # Remove features already triangulated
+    dist_mat = distance_matrix(candi_kp, kp1)
+    l = dist_mat.min(axis=1)<2
+    candi_kp = candi_kp[~l,:]
+    # ax.imshow(I[BOOTSTRAP_FRAME], cmap='gray', vmin=0, vmax=255)
+    # ax.plot(kp1[:, 0], kp1[:, 1], 'rx')
+    # ax.plot(candi_kp[~l, 0], candi_kp[~l, 1], 'gx')
+    # plt.show()
+    C0 = np.vstack([candi_kp.T, np.ones((1, candi_kp.shape[0]))])
+    F0 = np.vstack([candi_kp.T, np.ones((1, candi_kp.shape[0]))])
+    pose_flattened = np.hstack([np.eye(3).flatten(), np.zeros((3,1)).flatten()])
+    T0 = np.hstack([pose_flattened.reshape(-1,1)]*C0.shape[-1])
 
     # 4. Bundle adjustment to refine R, T, X0
     # TODO figure this out
 
-    return VO_state(P=points0, X=X0, C=C0, F=F0, T=T0)
+    return VO_state(P=points1, X=X0, C=C0, F=F0, T=T0)
 
 def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     '''
@@ -220,12 +234,26 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     P1, inliers = KLT_CV2(P0.T[:,:-1].astype(np.float32), I1, I0) # tracks P0 features in I1
     X1 = X0[:, inliers.astype(bool)] # Update X1 from P1 and X0
     # print(X1.T[:,:-1].shape)
-    R1, T1 = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
-    T1_WC = np.hstack((R1, T1)) # Get transformation matrix in SE3 (without bottom row)
+    R1, Tr1 = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
+    pose_flattened = np.hstack([R1.flatten(), Tr1.flatten()])
+    T1_WC = np.hstack((R1, Tr1)) # Get transformation matrix in SE3 (without bottom row)
     C1, inliers_candidates = KLT_CV2(C0.T[:,:-1].astype(np.float32), I1, I0) # track C0 features in I1
+    # Remove features with lost tracking
     F1 = F0[:, inliers_candidates.astype(bool)]
     T1 = T0[:, inliers_candidates.astype(bool)]
-    # C1 = featureDectection(I1,C1,P1) # Add new features to keep C1 from shrinking
+    # Add new features to keep C1 from shrinking
+    candi_kp, _ = feature_detect_describe(I1, detector="harris")
+    l_c = distance_matrix(candi_kp, C1).min(axis=1)<2
+    l_p = distance_matrix(candi_kp, P1).min(axis=1)<2
+    l = np.logical_or(l_c,l_p)
+
+    candi_kp = candi_kp[~l,:]
+    C1 = np.vstack([C1, candi_kp])
+    F1 = np.hstack([F1, np.vstack([candi_kp.T, np.ones(candi_kp.shape[0])])])
+    T1 = np.hstack([T1, np.hstack(candi_kp.shape[0]*[pose_flattened.reshape(-1,1)])])
+    # triangulate new points
+    P1, X1, C1, F1, T1 = TriangulateNew(P1, X1, C1, F1, T1, T1_WC)
+
     # F1 = firstObservationTracker(C0, F0, C1) # update F1 with C1
     # T1 = cameraPoseMappedTo_c(C0, T0, C1) # update T1 with C1
     # P1, X1, C1, F1, T1 = TriangulateProMaxPlusUltra(P1, X1, C1, F1, T1) # Add new points to pointcloud in P1, updates X1 accordingly, removes those points from C1, F1, and T1
@@ -257,9 +285,14 @@ def main() -> None:
     # return
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
-    prev_frame = I0
+    prev_frame = I[BOOTSTRAP_FRAME]
 
-    for img_path in DS_GLOB[1:]:
+    fig = plt.figure()
+    # ax0 = fig.add_subplot(projection='3d')
+    ax1 = fig.add_subplot(1,1,1)
+
+    for img_path in DS_GLOB[BOOTSTRAP_FRAME + 1:]:
+        ax1.clear()
         frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
@@ -268,6 +301,20 @@ def main() -> None:
         prev_frame = frame
 
         odom.append(T_WC) # append current pose to odom list
+
+        # print(prev_state.X.shape[1])
+
+        # Plot tracking of keypoints
+        ax1.imshow(frame, cmap='gray', vmin=0, vmax=255)
+        ax1.scatter(state.P[0,:], state.P[1,:], marker='o', color='red')
+
+        # Plot trajectory
+        # ax0.set_xlim([-100, 100])
+        # ax0.set_ylim([-100, 100])
+        # ax0.set_zlim([-100, 100])
+        # ax0.plot(T_WC[0,-1], T_WC[1,-1], T_WC[2,-1], marker='o', color='red')
+
+        plt.pause(0.01)
 
         # ~ Press Q on keyboard to exit (for debugging)
         if cv2.waitKey(25) & 0xFF == ord('q'):

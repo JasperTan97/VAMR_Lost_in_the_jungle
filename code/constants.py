@@ -1,4 +1,5 @@
 from numpy import log
+import math
 
 BOOTSTRAP_FRAME = 5
 
@@ -46,3 +47,10 @@ KLT_THRESHOLD = 0.03                 # scalar, bidirectional error threshold
 
 NUM_ITER_RANSAC = 1000
 PIXEL_TOLERANCE = 10
+
+#################
+# Triangulation #
+#################
+
+PAR_THRESHOLD = math.cos(math.radians(0.5))
+
