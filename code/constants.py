@@ -28,18 +28,18 @@ NUM_OCTAVES = 5                 # number of octaves
 ##########
 # Harris #
 ##########
-HARRIS_BLOCK_SIZE = 2       # Harris Neighborhood size.
+HARRIS_BLOCK_SIZE = 9       # Harris Neighborhood size.
 HARRIS_K_SIZE = 3           # Aperture parameter for the Sobel operator.
-HARRIS_K = 0.04             # Harris detector free parameter.
-HARRIS_N_KPTS = 200          # Number of kp responses to select
-HARRIS_R = 8                # Non-max suppression radius
+HARRIS_K = 0.08             # Harris detector free parameter.
+HARRIS_N_KPTS = 600          # Number of kp responses to select
+HARRIS_R = 9                # Non-max suppression radius
 
 #######
 # KLT #
 #######
 R_T = 15                        # scalar, radius of patch to track
 KLT_N_ITER = 10                     # scalar, number of iterations
-KLT_THRESHOLD = 0.03                 # scalar, bidirectional error threshold
+KLT_THRESHOLD = 0.08                 # scalar, bidirectional error threshold
 
 ##############
 # PnP RANSAC #

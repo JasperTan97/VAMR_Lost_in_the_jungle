@@ -7,8 +7,8 @@ from code.constants import *
 import cv2
 
 def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    if X.shape[1] > 400:
-        return P, X, C, F, T
+    # if X.shape[1] > 400:
+    #     return P, X, C, F, T
     X1 = np.copy(X)
     P1 = np.copy(P)
     rem_index = []

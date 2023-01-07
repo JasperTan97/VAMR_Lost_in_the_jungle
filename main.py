@@ -11,7 +11,7 @@ from scipy.spatial import distance_matrix
 from code.KLT_main import *
 from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
-from code.pnp_ransac_main import PnPransacCV
+from code.pnp_ransac_main import PnPransacCV, ransacLocalization
 from code.triangulate_new import TriangulateNew
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
 
@@ -21,7 +21,7 @@ from code.constants import *
 # For reading the dataset from file
 from glob import glob
 
-DATASET = 'parking'
+DATASET = 'malaga'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -32,13 +32,28 @@ if DATASET=='parking':
          [0,      0,       1]])
 
 elif DATASET=='kitti':
-    raise NotImplementedError
+    DS_PATH = './data/kitti/05/image_0/'
+    K_PATH = './data/parking/K.txt'
+    # Get K (hardcoded to dataset)
+    K = np.array(
+        [[7.188560000000e+02, 0, 6.071928000000e+02],
+         [0, 7.188560000000e+02, 1.852157000000e+02],
+         [0, 0, 1]])
 elif DATASET=='malaga':
-    raise NotImplementedError
+    DS_PATH = './data/malaga-urban-dataset-extract-07/malaga-urban-dataset-extract-07_rectified_800x600_Images/'
+    K_PATH = './data/parking/K.txt'
+    # Get K (hardcoded to dataset)
+    K = np.array(
+        [[621.18428, 0, 404.0076],
+        [0, 621.18428, 309.05989],
+        [0, 0, 1]])
 else:
     raise ValueError
 
-DS_GLOB = sorted( glob(DS_PATH+'*.png') )
+if DATASET == 'malaga':
+    DS_GLOB = sorted( glob(DS_PATH+'*left.jpg') )
+else:
+    DS_GLOB = sorted( glob(DS_PATH+'*.png') )
 
 Pose = np.ndarray
 class VO_state:
@@ -249,8 +264,10 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     X1 = X0[:, inliers.astype(bool)] # Update X1 from P1 and X0
     # print(X1.T[:,:-1].shape)
     R_CW, t_CW, inliers_pnp = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
+    # R_CW, t_CW, inliers_pnp, _, _ = ransacLocalization(P1.T, X1[:-1,:].T, K)
+    # t_CW = t_CW.reshape(-1,1)
     inliers_pnp = inliers_pnp.reshape(-1)
-    # print(inliers_pnp)
+    # print(inliers_pnp.shape[0]/P1.shape[0])
     P1 = P1[inliers_pnp, :]
     X1 = X1[:, inliers_pnp]
     pose_flattened = np.hstack([R_CW.flatten(), t_CW.flatten()])
@@ -307,9 +324,11 @@ def main() -> None:
 
     fig0 = plt.figure(1)
     fig1 = plt.figure(2)
-    ax0 = fig0.add_subplot(projection='3d')
+    ax0 = fig0.add_subplot()
     ax1 = fig1.add_subplot()
 
+    y = []
+    x = []
     for img_path in DS_GLOB[1:]:
         ax1.clear()
         frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
@@ -326,6 +345,13 @@ def main() -> None:
         t_W_C = -np.matmul(R_C_W.T, t_C_W) 
         print(t_W_C)
 
+        y.append(t_W_C[1])
+        x.append(t_W_C[0])
+
+        if len(y) > 20:
+            x.pop(0)
+            y.pop(0)
+
         # print(prev_state.X.shape[1])
 
         # Plot tracking of keypoints
@@ -333,10 +359,10 @@ def main() -> None:
         ax1.scatter(state.P[0,:], state.P[1,:], marker='o', color='red')
 
         # Plot trajectory
-        ax0.set_xlim([-100, 100])
-        ax0.set_ylim([-100, 100])
-        ax0.set_zlim([-100, 100])
-        ax0.plot(t_W_C[0], t_W_C[1], t_W_C[2], marker='o', color='red')
+        # ax0.set_xlim([-100, 100])
+        # ax0.set_ylim([-100, 100])
+        # ax0.set_zlim([-100, 100])
+        ax0.scatter(y, x, marker='.', color='red')
 
         # fig0.pause(0.01)
         # fig1.pause(0.01)
