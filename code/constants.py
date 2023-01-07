@@ -1,7 +1,7 @@
 from numpy import log
 import math
 
-BOOTSTRAP_FRAME = 5
+BOOTSTRAP_FRAME = 4
 
 RANSAC_REPROJ_THRESHOLD = 0.01  # Reprojection error tolerated for RANSAC to consider it an inlier
                                 # Value copied from MATLAB

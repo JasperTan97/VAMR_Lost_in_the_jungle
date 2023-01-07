@@ -185,21 +185,34 @@ def initialiseVO(I) -> VO_state:
 
     # Essential Matrix
     E = K.T @ F @ K
-
+    # print(E.shape)
     # Convert points format for OpenCV into 3xN homogenous pixel coordinates
     points0 = np.vstack([kp0.T, np.ones((1, kp0.shape[0]))])
     points1 = np.vstack([kp1.T, np.ones((1, kp1.shape[0]))])
 
+    check = np.linalg.norm( np.sum(points1 * (F @ points0)) ) / np.sqrt(points0.shape[1])
     # Get R, T, X out of E matrix
     # X is a byproduct of disambiguating the possibilities in R, T
     R, T, X0 = get_relative_pose(
         points0, points1, E, K
     )
+    # _, R_check, T_check, _ = cv2.recoverPose(E, kp0, kp1)
+    # print(R_check, '\n', R)
+    # print(T_check,'\n', T)
+
+    # check_pts = K @ np.hstack([R, T]) @ X0
+    check_pts = K @ np.eye(3,4) @ X0
+    check_pts /= check_pts[2,:]
+
+    diff = check_pts[:2,:]-kp0.T
+    reprojError = np.mean(np.linalg.norm(diff, axis=0))
+    
+    # print(reprojError)
 
     # Initialize C, F, T
-    candi_kp, _ = feature_detect_describe(I[BOOTSTRAP_FRAME], detector="harris") # All features in the Bootstrap frame
+    candi_kp, _ = feature_detect_describe(I[0], detector="harris") # All features in the Bootstrap frame
     # Remove features already triangulated
-    dist_mat = distance_matrix(candi_kp, kp1)
+    dist_mat = distance_matrix(candi_kp, kp0)
     l = dist_mat.min(axis=1)<2
     candi_kp = candi_kp[~l,:]
     # ax.imshow(I[BOOTSTRAP_FRAME], cmap='gray', vmin=0, vmax=255)
@@ -209,12 +222,13 @@ def initialiseVO(I) -> VO_state:
     C0 = np.vstack([candi_kp.T, np.ones((1, candi_kp.shape[0]))])
     F0 = np.vstack([candi_kp.T, np.ones((1, candi_kp.shape[0]))])
     pose_flattened = np.hstack([np.eye(3).flatten(), np.zeros((3,1)).flatten()])
+    # pose_flattened = np.eye(3,4).flatten()
     T0 = np.hstack([pose_flattened.reshape(-1,1)]*C0.shape[-1])
 
     # 4. Bundle adjustment to refine R, T, X0
     # TODO figure this out
 
-    return VO_state(P=points1, X=X0, C=C0, F=F0, T=T0)
+    return VO_state(P=points0, X=X0, C=C0, F=F0, T=T0)
 
 def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     '''
@@ -234,9 +248,13 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     P1, inliers = KLT_CV2(P0.T[:,:-1].astype(np.float32), I1, I0) # tracks P0 features in I1
     X1 = X0[:, inliers.astype(bool)] # Update X1 from P1 and X0
     # print(X1.T[:,:-1].shape)
-    R1, Tr1 = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
-    pose_flattened = np.hstack([R1.flatten(), Tr1.flatten()])
-    T1_WC = np.hstack((R1, Tr1)) # Get transformation matrix in SE3 (without bottom row)
+    R_CW, t_CW, inliers_pnp = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
+    inliers_pnp = inliers_pnp.reshape(-1)
+    # print(inliers_pnp)
+    P1 = P1[inliers_pnp, :]
+    X1 = X1[:, inliers_pnp]
+    pose_flattened = np.hstack([R_CW.flatten(), t_CW.flatten()])
+    T1_CW = np.hstack((R_CW, t_CW)) # Get transformation matrix in SE3 (without bottom row)
     C1, inliers_candidates = KLT_CV2(C0.T[:,:-1].astype(np.float32), I1, I0) # track C0 features in I1
     # Remove features with lost tracking
     F1 = F0[:, inliers_candidates.astype(bool)]
@@ -246,13 +264,13 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     l_c = distance_matrix(candi_kp, C1).min(axis=1)<2
     l_p = distance_matrix(candi_kp, P1).min(axis=1)<2
     l = np.logical_or(l_c,l_p)
-
     candi_kp = candi_kp[~l,:]
+    # print(candi_kp.shape[0])
     C1 = np.vstack([C1, candi_kp])
     F1 = np.hstack([F1, np.vstack([candi_kp.T, np.ones(candi_kp.shape[0])])])
     T1 = np.hstack([T1, np.hstack(candi_kp.shape[0]*[pose_flattened.reshape(-1,1)])])
     # triangulate new points
-    P1, X1, C1, F1, T1 = TriangulateNew(P1, X1, C1, F1, T1, T1_WC)
+    P1, X1, C1, F1, T1 = TriangulateNew(P1, X1, C1, F1, T1, T1_CW, K)
 
     # F1 = firstObservationTracker(C0, F0, C1) # update F1 with C1
     # T1 = cameraPoseMappedTo_c(C0, T0, C1) # update T1 with C1
@@ -261,7 +279,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     C1 = np.vstack([C1.T, np.ones(C1.shape[0])])
     S1 = VO_state(P=P1, X=X1, C=C1, F=F1, T=T1) # repack state i
 
-    return S1, T1_WC
+    return S1, T1_CW
 
 def main() -> None:
     np.set_printoptions(precision=3, suppress=True)
@@ -285,13 +303,14 @@ def main() -> None:
     # return
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
-    prev_frame = I[BOOTSTRAP_FRAME]
+    prev_frame = I[0]
 
-    fig = plt.figure()
-    # ax0 = fig.add_subplot(projection='3d')
-    ax1 = fig.add_subplot(1,1,1)
+    fig0 = plt.figure(1)
+    fig1 = plt.figure(2)
+    ax0 = fig0.add_subplot(projection='3d')
+    ax1 = fig1.add_subplot()
 
-    for img_path in DS_GLOB[BOOTSTRAP_FRAME + 1:]:
+    for img_path in DS_GLOB[1:]:
         ax1.clear()
         frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
@@ -302,6 +321,11 @@ def main() -> None:
 
         odom.append(T_WC) # append current pose to odom list
 
+        R_C_W = T_WC[:3,:3]
+        t_C_W = T_WC[:,-1]
+        t_W_C = -np.matmul(R_C_W.T, t_C_W) 
+        print(t_W_C)
+
         # print(prev_state.X.shape[1])
 
         # Plot tracking of keypoints
@@ -309,11 +333,13 @@ def main() -> None:
         ax1.scatter(state.P[0,:], state.P[1,:], marker='o', color='red')
 
         # Plot trajectory
-        # ax0.set_xlim([-100, 100])
-        # ax0.set_ylim([-100, 100])
-        # ax0.set_zlim([-100, 100])
-        # ax0.plot(T_WC[0,-1], T_WC[1,-1], T_WC[2,-1], marker='o', color='red')
+        ax0.set_xlim([-100, 100])
+        ax0.set_ylim([-100, 100])
+        ax0.set_zlim([-100, 100])
+        ax0.plot(t_W_C[0], t_W_C[1], t_W_C[2], marker='o', color='red')
 
+        # fig0.pause(0.01)
+        # fig1.pause(0.01)
         plt.pause(0.01)
 
         # ~ Press Q on keyboard to exit (for debugging)
