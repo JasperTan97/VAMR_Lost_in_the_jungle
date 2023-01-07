@@ -1,9 +1,11 @@
 from numpy import log
 import math
 
+STARTING_FRAME = 0
 BOOTSTRAP_FRAME = 4
 
-RANSAC_REPROJ_THRESHOLD = 0.01  # Reprojection error tolerated for RANSAC to consider it an inlier
+
+RANSAC_REPROJ_THRESHOLD = 0.1  # Reprojection error tolerated for RANSAC to consider it an inlier
                                 # Value copied from MATLAB
 RANSAC_PROB_SUCCESS = 0.99      # Probability of success of RANSAC
 RANSAC_OUTLIER_FRAC = 0.50      # Outlier ratio
@@ -31,7 +33,7 @@ NUM_OCTAVES = 5                 # number of octaves
 HARRIS_BLOCK_SIZE = 9       # Harris Neighborhood size.
 HARRIS_K_SIZE = 3           # Aperture parameter for the Sobel operator.
 HARRIS_K = 0.08             # Harris detector free parameter.
-HARRIS_N_KPTS = 600          # Number of kp responses to select
+HARRIS_N_KPTS = 1000          # Number of kp responses to select
 HARRIS_R = 9                # Non-max suppression radius
 
 #######
@@ -52,5 +54,7 @@ PIXEL_TOLERANCE = 10
 # Triangulation #
 #################
 
-PAR_THRESHOLD = math.cos(math.radians(0.5))
+PAR_THRESHOLD = math.cos(math.radians(0.25))
+REPROJ_ERR = 5
+
 

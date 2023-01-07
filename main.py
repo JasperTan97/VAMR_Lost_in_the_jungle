@@ -21,7 +21,7 @@ from code.constants import *
 # For reading the dataset from file
 from glob import glob
 
-DATASET = 'malaga'
+DATASET = 'parking'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -303,7 +303,7 @@ def main() -> None:
 
     # Bootstrap
     I = []
-    for img_idx, img_path in enumerate(DS_GLOB):
+    for img_idx, img_path in enumerate(DS_GLOB[STARTING_FRAME:]):
         if img_idx <= BOOTSTRAP_FRAME:
             I0 = cv2.imread( img_path )
             img0_gray = cv2.cvtColor(I0, cv2.COLOR_BGR2GRAY)
@@ -330,18 +330,20 @@ def main() -> None:
     y = []
     x = []
     num_tracked_kps = []
-    x_traj_hist = []
-    z_traj_hist = []
 
     t_W_C_last = None
+    plt.figure(figsize=[12,7])
 
-    for img_path in DS_GLOB[1:]:
+    for img_idx, img_path in enumerate(DS_GLOB[STARTING_FRAME:]):
         ax0 = plt.subplot(2, 2, 1)          # Plots trajectory
         ax0.axis('equal')
         #ax0.set_aspect('equal', 'box')
         ax1 = plt.subplot(2, 2, 2)          # Plots image with keypoints
         ax1.clear()
+        ax1.set_title(f"FRAME: {img_idx + STARTING_FRAME}")
+
         ax2 = plt.subplot(2, 2, 3)          # Plots history of num tracked keypoints for last 20 frames
+
         ax3 = plt.subplot(2, 2, 4)          # Trajectory of last 20 frames and landmarks
         ax3.axis('equal')
 
@@ -367,51 +369,50 @@ def main() -> None:
         y.append(t_W_C[2])
         x.append(t_W_C[0])
         num_tracked_kps.append(state.X.shape[1])
-        x_traj_hist.append(t_C_W[0])
-        z_traj_hist.append(t_C_W[2])
 
         if len(y) > 20:
             x.pop(0)
             y.pop(0)
             num_tracked_kps.pop(0)
-            x_traj_hist.pop(0)
-            z_traj_hist.pop(0)
-
         # print(prev_state.X.shape[1])
 
         # Plot tracking of keypoints
         ax1.imshow(frame, cmap='gray', vmin=0, vmax=255)
-        ax1.scatter(state.P[0,:], state.P[1,:], marker='.', color='red')
-        ax1.scatter(state.C[0,:], state.C[1,:], marker='.', color='green')
+        ax1.scatter(state.C[0,:], state.C[1,:], marker='+', linewidths=0.3, color='green')
+        ax1.scatter(state.P[ 0,:], state.P[1,:], marker='x', linewidths=0.5, color='red')
         # P = Tracked Keypoints
         # C = Candidate Keypoints
 
         # number of tracked landmarks over the past 20 frames
         ax2.clear()
         ax2.plot(num_tracked_kps, 'kx--')
+        ax2.set_title("No. KPs tracked in past 20 frames")
+        ax2.set_ylim(0, 5000)
 
         # Trajectory of last 20 frames and landmarks
         ax3.clear()
         ax3.scatter(state.X[0,:], state.X[2,:], marker='x', color='black')
-        ax3.plot(x_traj_hist, z_traj_hist, 'x--')
+        ax3.plot(x, y, 'x--')
+        ax3.set_title("Last 20 frames, landmarks")
 
         # Plot trajectory
         # ax0.set_xlim([-100, 100])
         # ax0.set_ylim([-100, 100])
         # ax0.set_zlim([-100, 100])
         # ax0.scatter(x, y, marker='.', color='red')
-        ax0.plot(t_W_C[0], t_W_C[2], marker='.', color='red')
+        ax0.set_title(f"Current pose: (x: {t_W_C[0]:.3f}, y:{t_W_C[2]:.3f})")
+        ax0.plot(t_W_C[0], t_W_C[2], marker='.', color='black')
+        # if len(y) > 1:
+        #     ax0.scatter(x[-2], y[-2], marker='o', color='red')
         # ax0.scatter(prev_state.X[0,:], prev_state.X[1,:], marker='.', color='black')
 
-        # fig0.pause(0.01)
-        # fig1.pause(0.01)
-        plt.pause(0.01)
+        plt.tight_layout()
+        plt.pause(0.0001)
 
         # ~ Press Q on keyboard to exit (for debugging)
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(25) & 0xFF == ord('q'):
+        #     break
 
-    
     # Close all windows we might have
     cv2.destroyAllWindows()
 

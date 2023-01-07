@@ -27,7 +27,6 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
         X_new_CV, inFront = triangulation(pts0, pts1, K@projMat0, K@projMat1)
         # X_new_CV = cv2.triangulatePoints(K@projMat0, K@projMat1, pts0[:2,:], pts1[:2,:])
 
-        
         # Check parallax for each set of triangulations
         n_pts = X_new_CV.shape[1]
         v0 = -(np.hstack(n_pts*[projMat0[:,-1].reshape(-1,1)]) - X_new_CV[:3,:])
@@ -52,14 +51,13 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
 
         # meanReprojError = np.mean(np.linalg.norm(diff1, axis=0))
 
-        pts_bool = np.logical_and(pts_bool, meanReprojError<2, inFront)
+        pts_bool = np.logical_and(pts_bool, meanReprojError<REPROJ_ERR, inFront)
 
         # Add required points to X1 and P1 using C1
         pts_add = X_new_CV[:,pts_bool]
         X1 = np.hstack([X1, pts_add])
         P1 = np.vstack([P1, pts1[:2,pts_bool].T])
 
-        
         # print(reprojError)
         # Remove added points from C, F, T
         rem_index = rem_index + np.arange(indices[i], indices[i]+counts[i])[pts_bool].tolist()
@@ -67,5 +65,5 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
     F1 = np.delete(F, rem_index, axis=1)
     T1 = np.delete(T, rem_index, axis=1)
     # print(-C1.shape[0]+C.shape[0])
-    
+
     return P1, X1, C1, F1, T1
