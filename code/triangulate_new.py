@@ -24,9 +24,10 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
         pts0 = F[:,indices[i]:indices[i]+counts[i]]
         projMat1 = np.copy(T1_WC)
         pts1 = np.vstack([C[indices[i]:indices[i]+counts[i],:].T, np.ones(counts[i])])
-        X_new_CV = triangulation(pts0, pts1, K@projMat0, K@projMat1)
+        X_new_CV, inFront = triangulation(pts0, pts1, K@projMat0, K@projMat1)
         # X_new_CV = cv2.triangulatePoints(K@projMat0, K@projMat1, pts0[:2,:], pts1[:2,:])
-
+        # print("Check triangulation",np.mean(np.linalg.norm(X_new_CV - X_new_CV1, axis=0)))
+        # X_new_cam = T_WC @ 
         
         # Check parallax for each set of triangulations
         n_pts = X_new_CV.shape[1]
@@ -52,7 +53,7 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
 
         # meanReprojError = np.mean(np.linalg.norm(diff1, axis=0))
 
-        pts_bool = np.logical_and(pts_bool, meanReprojError<2)
+        pts_bool = np.logical_and(pts_bool, meanReprojError<4, inFront)
 
         # Add required points to X1 and P1 using C1
         pts_add = X_new_CV[:,pts_bool]

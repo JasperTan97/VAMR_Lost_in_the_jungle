@@ -5,6 +5,7 @@ from code.constants import *
 
 def PnPransacCV(P1, X1, K):
     _, rvec, tvec, inliers = cv2.solvePnPRansac(X1, P1, K, distCoeffs=None)
+    # rvec1, tvec1 = cv2.solvePnPRefineLM(X1, P1, K, distCoeffs=None)
     RotMat = cv2.Rodrigues(rvec)[0]
 
     return RotMat, tvec, inliers

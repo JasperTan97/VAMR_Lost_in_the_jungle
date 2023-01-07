@@ -21,7 +21,7 @@ from code.constants import *
 # For reading the dataset from file
 from glob import glob
 
-DATASET = 'kitti'
+DATASET = 'parking'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -267,7 +267,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     # R_CW, t_CW, inliers_pnp, _, _ = ransacLocalization(P1.T, X1[:-1,:].T, K)
     # t_CW = t_CW.reshape(-1,1)
     inliers_pnp = inliers_pnp.reshape(-1)
-    print(inliers_pnp.shape[0]/P1.shape[0])
+    # print("Fraction of inliers:",inliers_pnp.shape[0]/P1.shape[0])
     P1 = P1[inliers_pnp, :]
     X1 = X1[:, inliers_pnp]
     pose_flattened = np.hstack([R_CW.flatten(), t_CW.flatten()])
@@ -278,8 +278,8 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     T1 = T0[:, inliers_candidates.astype(bool)]
     # Add new features to keep C1 from shrinking
     candi_kp, _ = feature_detect_describe(I1, detector="harris")
-    l_c = distance_matrix(candi_kp, C1).min(axis=1)<2
-    l_p = distance_matrix(candi_kp, P1).min(axis=1)<2
+    l_c = distance_matrix(candi_kp, C1).min(axis=1)<4
+    l_p = distance_matrix(candi_kp, P1).min(axis=1)<4
     l = np.logical_or(l_c,l_p)
     candi_kp = candi_kp[~l,:]
     # print(candi_kp.shape[0])
@@ -340,6 +340,11 @@ def main() -> None:
         prev_frame = frame
 
         odom.append(T_WC) # append current pose to odom list
+
+        X_cam = T_WC @ prev_state.X
+
+        n_front = np.sum(X_cam[2,:] > 0)
+        print("Fraction of points infront",n_front/X_cam.shape[1], prev_state.X.shape[1])
 
         R_C_W = T_WC[:3,:3]
         t_C_W = T_WC[:,-1]
