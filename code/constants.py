@@ -39,9 +39,9 @@ HARRIS_R = 9                # Non-max suppression radius
 #######
 # KLT #
 #######
-R_T = 15                        # scalar, radius of patch to track
+R_T = 31                        # scalar, radius of patch to track
 KLT_N_ITER = 10                     # scalar, number of iterations
-KLT_THRESHOLD = 0.08                 # scalar, bidirectional error threshold
+KLT_THRESHOLD = 1.0                 # scalar, bidirectional error threshold
 
 ##############
 # PnP RANSAC #
