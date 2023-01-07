@@ -21,7 +21,7 @@ from code.constants import *
 # For reading the dataset from file
 from glob import glob
 
-DATASET = 'malaga'
+DATASET = 'kitti'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -267,7 +267,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     # R_CW, t_CW, inliers_pnp, _, _ = ransacLocalization(P1.T, X1[:-1,:].T, K)
     # t_CW = t_CW.reshape(-1,1)
     inliers_pnp = inliers_pnp.reshape(-1)
-    # print(inliers_pnp.shape[0]/P1.shape[0])
+    print(inliers_pnp.shape[0]/P1.shape[0])
     P1 = P1[inliers_pnp, :]
     X1 = X1[:, inliers_pnp]
     pose_flattened = np.hstack([R_CW.flatten(), t_CW.flatten()])
@@ -331,6 +331,7 @@ def main() -> None:
     x = []
     for img_path in DS_GLOB[1:]:
         ax1.clear()
+        # ax0.clear()
         frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
@@ -343,9 +344,9 @@ def main() -> None:
         R_C_W = T_WC[:3,:3]
         t_C_W = T_WC[:,-1]
         t_W_C = -np.matmul(R_C_W.T, t_C_W) 
-        print(t_W_C)
+        # print(prev_state.X.shape[1])
 
-        y.append(t_W_C[1])
+        y.append(t_W_C[2])
         x.append(t_W_C[0])
 
         if len(y) > 20:
@@ -362,7 +363,9 @@ def main() -> None:
         # ax0.set_xlim([-100, 100])
         # ax0.set_ylim([-100, 100])
         # ax0.set_zlim([-100, 100])
-        ax0.scatter(y, x, marker='.', color='red')
+        # ax0.scatter(x, y, marker='.', color='red')
+        ax0.plot(t_W_C[0], t_W_C[2], marker='.', color='red')
+        # ax0.scatter(prev_state.X[0,:], prev_state.X[1,:], marker='.', color='black')
 
         # fig0.pause(0.01)
         # fig1.pause(0.01)

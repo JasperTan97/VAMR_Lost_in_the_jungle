@@ -42,9 +42,17 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
         check_pts1 /= check_pts1[2,:] 
         diff1 = check_pts1[:2,:]-pts1[:2,:]
         reprojError1 = np.linalg.norm(diff1, axis=0)
-        meanReprojError = np.mean(np.linalg.norm(diff1, axis=0))
 
-        pts_bool = np.logical_and(pts_bool, reprojError1<4)
+        check_pts2 = K@projMat0@X_new_CV
+        check_pts2 /= check_pts2[2,:] 
+        diff2 = check_pts2[:2,:]-pts0[:2,:]
+        reprojError2 = np.linalg.norm(diff1, axis=0)
+
+        meanReprojError = 0.5*(reprojError1+reprojError2)
+
+        # meanReprojError = np.mean(np.linalg.norm(diff1, axis=0))
+
+        pts_bool = np.logical_and(pts_bool, meanReprojError<2)
 
         # Add required points to X1 and P1 using C1
         pts_add = X_new_CV[:,pts_bool]
