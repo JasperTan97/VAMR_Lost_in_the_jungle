@@ -35,6 +35,7 @@ def triangulation(
         P[:,i] = vh.T[:,-1]     # Last column of V
 
     # Dehomogenize
+    P_bool = P[3,:] > 0
     P /= P[3,:]
 
-    return P
+    return P, P_bool

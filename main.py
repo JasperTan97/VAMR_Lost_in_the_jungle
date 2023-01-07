@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from typing import List, Tuple, Dict
 
-from ismember import ismember
+#from ismember import ismember
 from scipy.spatial import distance_matrix
 
 from code.KLT_main import *
@@ -21,7 +21,7 @@ from code.constants import *
 # For reading the dataset from file
 from glob import glob
 
-DATASET = 'kitti'
+DATASET = 'malaga'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -329,9 +329,22 @@ def main() -> None:
 
     y = []
     x = []
+    num_tracked_kps = []
+    x_traj_hist = []
+    z_traj_hist = []
+
+    t_W_C_last = None
+
     for img_path in DS_GLOB[1:]:
+        ax0 = plt.subplot(2, 2, 1)          # Plots trajectory
+        ax0.axis('equal')
+        #ax0.set_aspect('equal', 'box')
+        ax1 = plt.subplot(2, 2, 2)          # Plots image with keypoints
         ax1.clear()
-        # ax0.clear()
+        ax2 = plt.subplot(2, 2, 3)          # Plots history of num tracked keypoints for last 20 frames
+        ax3 = plt.subplot(2, 2, 4)          # Trajectory of last 20 frames and landmarks
+        ax3.axis('equal')
+
         frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
@@ -344,20 +357,43 @@ def main() -> None:
         R_C_W = T_WC[:3,:3]
         t_C_W = T_WC[:,-1]
         t_W_C = -np.matmul(R_C_W.T, t_C_W) 
+        if t_W_C_last is not None:
+            t_rel = t_W_C - t_W_C_last
+            t_rel_norm = np.linalg.norm(t_rel)
+            t_W_C = t_W_C_last + t_rel / t_rel_norm
+        t_W_C_last = t_W_C
         # print(prev_state.X.shape[1])
 
         y.append(t_W_C[2])
         x.append(t_W_C[0])
+        num_tracked_kps.append(state.X.shape[1])
+        x_traj_hist.append(t_C_W[0])
+        z_traj_hist.append(t_C_W[2])
 
         if len(y) > 20:
             x.pop(0)
             y.pop(0)
+            num_tracked_kps.pop(0)
+            x_traj_hist.pop(0)
+            z_traj_hist.pop(0)
 
         # print(prev_state.X.shape[1])
 
         # Plot tracking of keypoints
         ax1.imshow(frame, cmap='gray', vmin=0, vmax=255)
-        ax1.scatter(state.P[0,:], state.P[1,:], marker='o', color='red')
+        ax1.scatter(state.P[0,:], state.P[1,:], marker='.', color='red')
+        ax1.scatter(state.C[0,:], state.C[1,:], marker='.', color='green')
+        # P = Tracked Keypoints
+        # C = Candidate Keypoints
+
+        # number of tracked landmarks over the past 20 frames
+        ax2.clear()
+        ax2.plot(num_tracked_kps, 'kx--')
+
+        # Trajectory of last 20 frames and landmarks
+        ax3.clear()
+        ax3.scatter(state.X[0,:], state.X[2,:], marker='x', color='black')
+        ax3.plot(x_traj_hist, z_traj_hist, 'x--')
 
         # Plot trajectory
         # ax0.set_xlim([-100, 100])
