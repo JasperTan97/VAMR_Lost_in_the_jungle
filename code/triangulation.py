@@ -37,6 +37,6 @@ def triangulation(
     # Dehomogenize
     # P_bool = P[3,:] > 0
     P /= P[3,:]
-    P_bool = P[2,:] > 0
+    # P_bool = P[2,:] > 0
 
-    return P, P_bool
+    return P

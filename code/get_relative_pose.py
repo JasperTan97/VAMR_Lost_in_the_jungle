@@ -59,7 +59,7 @@ def get_relative_pose(
         for signT in [-1, 1]:
             T_C2_C1_test = u3[:,np.newaxis] * signT
             M2 = K @ np.hstack([R_C2_C1_test, T_C2_C1_test])
-            P_C1,_ = triangulation(points0, points1, M1, M2)
+            P_C1 = triangulation(points0, points1, M1, M2)
 
             # project in both cameras
             P_C2 = np.hstack([R_C2_C1_test, T_C2_C1_test]) @ P_C1

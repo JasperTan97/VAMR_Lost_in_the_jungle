@@ -24,7 +24,8 @@ def TriangulateNew(P, X, C, F, T, T1_WC, K) -> Tuple[np.ndarray, np.ndarray, np.
         pts0 = F[:,indices[i]:indices[i]+counts[i]]
         projMat1 = np.copy(T1_WC)
         pts1 = np.vstack([C[indices[i]:indices[i]+counts[i],:].T, np.ones(counts[i])])
-        X_new_CV, inFront = triangulation(pts0, pts1, K@projMat0, K@projMat1)
+        X_new_CV = triangulation(pts0, pts1, K@projMat0, K@projMat1)
+        inFront = (T1_WC @ X_new_CV)[2,:]>0
         # X_new_CV = cv2.triangulatePoints(K@projMat0, K@projMat1, pts0[:2,:], pts1[:2,:])
         # print("Check triangulation",np.mean(np.linalg.norm(X_new_CV - X_new_CV1, axis=0)))
         # X_new_cam = T_WC @ 
