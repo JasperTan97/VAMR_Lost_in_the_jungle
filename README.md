@@ -7,7 +7,7 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
 3. Run `setup.sh`. It should:
    1. Setup a `conda` environment, `vamr_proj`, with `requirements.txt` installed.
    2. Download the datasets from the VAMR course websites.
-4. Try out our examples (**TODO**).
+4. Try out our examples.
 
 ## Repository Structure
 - `data`: Our example datasets. These comprise a list of images along with the corresponding `K` camera intrinsic matrics.
@@ -15,40 +15,38 @@ As part of the mini-project for the [Vision Algorithms for Mobile Robotics](http
   - `KITTI` dataset
   - `Malaga` dataset
 - `code`: Our functions for VO
-- `_examples`: Testing/demo code. **SHOULD BE REMOVED BEFORE MAKING REPO PUBLIC**
+- `Notes`: Some notes we made along the way.
 - `main.py`: Our main function. Run this to see the output.
 
-## Task allocation
-### TY
-  - [x] Find Fundemental Matrix (5/8 point RANSAC)
-    - [x] Extract R,T
-- [x] Open and process dataset
-  - [x] Get `K` from it (so far only working on Parking dataset)
-- [X] Triangulation 
+## Running our code
+To run our code, just run `python3 main.py` in the root folder of this repository.
 
-### `J`a`s`p`e`r
-- [X] Implementation of `VO_State`
-- [X] Gonna do KLT LOL
- - I will presume it will work
-- [X] Feature detection
-- [X] Feature matching
+![Viz](Notes/Code%20Illus.png)
 
-### Abhiram
-- [X] Investigate OpenCV functions
-  - [X] PNP RANSAC
+This will display three plots.
+1. The top plot shows the image, along with an overlay of the keypoints being tracked as red crosses.
+2. The bottom left plot shows a history of the poses computed through VO. The red dot is the most recent pose.
+3. The bottom right plot shows the number of keypoints that have been tracked in the past 20 frames.
 
-### Adarsh
-- [ ] firstObservationTracker
-- [ ] cameraPoseMappedTo_c
-- [ ] TriangulateProMaxPlusUltra
-- [ ] Supervise 👀
-- [ ] Step out of his comfort zone
+### Dataset
+To change between datasets, set the `DATASET` variable in `main.py`. It is a string accepting `parking`, `kitti`, or `malaga`.
 
-## Long (?) in the Future
-- [ ] Tidy up code
-- [ ] Report
-- [ ] Visualise trajectory
-- [ ] Other +++ points for 0.5
-  - [ ] Collect own dataset
-  - [ ] Loop Closure
-  - [ ] Analyze trajectory
+### Plotting pointcloud
+Our implementation uses 2D-2D correspondences for VO, and therefore does not provide a pointcloud by default.
+
+To visualise a pointcloud, set the `PLOT_POINTCLOUD` variable in `main.py` to `True`. It will also visualise a point-cloud triangulated from the last few poses.
+
+![Pcl Viz](Notes/Pointcloud%20Illus.png)
+This will display four plots.
+1. The plot on the top left shows a history of the poses computed through VO. The red dot is the most recent pose.
+2. The plot on the top right shows the image, along with an overlay of the keypoints being tracked as red crosses.
+3. The plot on the bottom left shows the number of keypoints that have been tracked in the past 20 frames.
+4. The plot on the bottom right shows: 
+   1. the past poses as blue arrows,
+   2. the current pose as a yellow arrow,
+   3. the base pose for triangulation as a red arrow,
+   4. the pose calculated from triangulating poses from the current pose and base pose as a large purple arrow,
+   5. and the pointcloud as green crosses.
+
+## Video recordings
+Go to the Polybox link [here](https://polybox.ethz.ch/index.php/s/089LXzUeORKMswT) to view our recorded videos.

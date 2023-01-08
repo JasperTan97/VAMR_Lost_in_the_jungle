@@ -13,15 +13,16 @@ from code.pnp_ransac_main import PnPransacCV, ransacLocalization
 from code.triangulate_new import TriangulateNew
 import os
 
-import time
-
 # Constants for tunable parameters
 from code.constants import *
 
 # For reading the dataset from file
 from glob import glob
 
+### Adjust these functions here ###
 DATASET = 'parking'
+PLOT_POINTCLOUD = False
+
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -171,7 +172,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose, Pose]:
     prev_pts = np.array([pt for (idx, pt) in enumerate(prev_pts) if mask[idx] == 1])
     curr_pts = np.array([pt for (idx, pt) in enumerate(curr_pts) if mask[idx] == 1])
     _, R_CW, t_CW, _ = cv2.recoverPose(E, curr_pts, prev_pts, K)
-    print(f"{len(curr_pts):04d} features left after pose estimation.")
+    # print(f"{len(curr_pts):04d} features left after pose estimation.")
 
     T1_CW = np.hstack((R_CW, t_CW)) # Get transformation matrix in SE3 (without bottom row)
     # Add new features to keep C1 from shrinking
@@ -199,7 +200,6 @@ def readGroundtuthPosition(frameId):
 
 def main() -> None:
     np.set_printoptions(precision=3, suppress=True)
-    time.sleep(3)
 
     # Bootstrap upto manually selected BOOTSTRAP_FRAME
     I = []
@@ -236,8 +236,7 @@ def main() -> None:
 
     for img_idx, img_path in enumerate(DS_GLOB[STARTING_FRAME:]):
         # If we want to attempt to triangulate between frames to obtain a pointcloud
-        plot_pointcloud = True
-        if plot_pointcloud:
+        if PLOT_POINTCLOUD:
             ax0 = plt.subplot(2, 2, 1)
             ax0.axis('equal')                   # Plots trajectory
             ax1 = plt.subplot(2, 2, 2)          # Plots image with keypoints
@@ -285,10 +284,10 @@ def main() -> None:
         ax2.clear()
         ax2.plot(num_tracked_kps, 'kx--')
         ax2.set_title(f"No. KPs tracked in past {len(num_tracked_kps)} frames")
-        ax2.set_ylim(0, 5000)
+        ax2.set_ylim(0, 1.1*max(num_tracked_kps) )
 
         # Trajectory of last 20 frames and landmarks
-        if plot_pointcloud:
+        if PLOT_POINTCLOUD:
             # Triangulate keypoints every frame
             triang_pose.append(np.hstack((cameraRot,cameraPose.reshape(-1,1))))
             triang_kps.append(state.P[:2,:].T)
