@@ -54,7 +54,6 @@ PIXEL_TOLERANCE = 10
 # Triangulation #
 #################
 
-PAR_THRESHOLD = math.cos(math.radians(0.25))
-REPROJ_ERR = 5
-
-
+PAR_ANGLE = 3.0    # Minimum angle in degrees for triangulation
+PAR_THRESHOLD = math.cos(math.radians(PAR_ANGLE))
+REPROJ_ERR = 8

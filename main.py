@@ -88,6 +88,35 @@ class VO_state:
             assert C.shape[-1] == F.shape[-1]
             assert C.shape[-1] == T.shape[-1]
 
+def feature_detect(image, detector="harris") -> np.ndarray: # returns locations
+    '''
+    Given an image, returns:
+    - Keypoint locations (N x 2 ndarray)
+
+    Valid Detectors:
+    - "SIFT"
+    - "harris"
+    '''
+
+    if detector == "SIFT":
+        s, _ = SIFT(image, ROTATION_INVARIANT, CONTRAST_THRESHOLD, RESCALE_FACTOR, SIFT_SIGMA, NUM_SCALES, NUM_OCTAVES)
+        return s
+    elif detector == "harris":
+        # Dst is the response map from Harris detector
+        dst = cv2.cornerHarris(image, HARRIS_BLOCK_SIZE, HARRIS_K_SIZE, HARRIS_K)
+
+        # Select the N_KPTS best keypoints
+        kps = np.zeros((HARRIS_N_KPTS, 2))
+        r = HARRIS_R
+        temp_scores = np.pad(dst, [(r, r), (r, r)], mode='constant', constant_values=0)
+
+        for i in range(HARRIS_N_KPTS):
+            kp = np.unravel_index(temp_scores.argmax(), temp_scores.shape)
+            kps[i, :] = np.array(kp) - r
+            temp_scores[(kp[0] - r):(kp[0] + r + 1), (kp[1] - r):(kp[1] + r + 1)] = 0
+
+        return kps
+
 def feature_detect_describe(image, detector="SIFT", descriptor=None) -> Tuple[np.ndarray, np.ndarray]: # returns locations, descriptions
     '''
     Given an image, returns:
@@ -231,7 +260,7 @@ def initialiseVO(I) -> VO_state:
     # print(reprojError)
 
     # Initialize C, F, T
-    candi_kp, _ = feature_detect_describe(I[0], detector="harris") # All features in the Bootstrap frame
+    candi_kp = feature_detect(I[0], detector="harris") # All features in the Bootstrap frame
     # Remove features already triangulated
     dist_mat = distance_matrix(candi_kp, kp0)
     l = dist_mat.min(axis=1)<2
@@ -360,6 +389,8 @@ def main() -> None:
 
     y = []
     x = []
+    dy = []
+    dx = []
     num_tracked_kps = []
 
     t_W_C_last = None
@@ -368,13 +399,8 @@ def main() -> None:
     for img_idx, img_path in enumerate(DS_GLOB[STARTING_FRAME:]):
         ax0 = plt.subplot(2, 2, 1)          # Plots trajectory
         ax0.axis('equal')
-        #ax0.set_aspect('equal', 'box')
         ax1 = plt.subplot(2, 2, 2)          # Plots image with keypoints
-        ax1.clear()
-        ax1.set_title(f"FRAME: {img_idx + STARTING_FRAME}")
-
         ax2 = plt.subplot(2, 2, 3)          # Plots history of num tracked keypoints for last 20 frames
-
         ax3 = plt.subplot(2, 2, 4)          # Trajectory of last 20 frames and landmarks
         ax3.axis('equal')
 
@@ -397,27 +423,40 @@ def main() -> None:
         n_front = np.sum(X_cam[2,:] > 0)
         # print("Fraction of points infront",n_front/X_cam.shape[1], prev_state.X.shape[1])
 
-        R_C_W = T_WC[:3,:3]
-        t_C_W = T_WC[:,-1]
+        # Convert the inverse
+        R_C_W = T_CW[:3,:3]
+        t_C_W = T_CW[:,-1]
         t_W_C = -np.matmul(R_C_W.T, t_C_W) 
-        if t_W_C_last is not None:
-            t_rel = t_W_C - t_W_C_last
-            t_rel_norm = np.linalg.norm(t_rel)
-            t_W_C = t_W_C_last + t_rel / t_rel_norm
-        t_W_C_last = t_W_C
+        # if t_W_C_last is not None:
+        #     t_rel = t_W_C - t_W_C_last
+        #     t_rel_norm = np.linalg.norm(t_rel)
+        #     t_W_C = t_W_C_last + t_rel / t_rel_norm
+        # t_W_C_last = t_W_C
         # print(prev_state.X.shape[1])
+
+        ## PLOTTING ##
 
         y.append(t_W_C[2])
         x.append(t_W_C[0])
+        dx.append(R_C_W[0,2])
+        dy.append(R_C_W[2,2])
         num_tracked_kps.append(state.X.shape[1])
 
-        if len(y) > 20:
-            x.pop(0)
-            y.pop(0)
-            num_tracked_kps.pop(0)
+        # if len(y) > 20:
+        #     x.pop(0)
+        #     y.pop(0)
+        #     num_tracked_kps.pop(0)
         # print(prev_state.X.shape[1])
 
+        # Plot trajectory
+        ax0.clear()
+        ax0.set_title(f"Current pose: (x: {t_W_C[0]:.2f}, y:{t_W_C[2]:.2f})")
+        ax0.scatter(x, y, marker='.', s=1, color='black')
+        ax0.plot(t_W_C[0], t_W_C[2], marker='.', color='red')
+
         # Plot tracking of keypoints
+        ax1.clear()
+        ax1.set_title(f"FRAME: {img_idx + STARTING_FRAME}")
         ax1.imshow(frame, cmap='gray', vmin=0, vmax=255)
         ax1.scatter(state.C[0,:], state.C[1,:], marker='+', linewidths=0.3, color='green')
         ax1.scatter(state.P[ 0,:], state.P[1,:], marker='x', linewidths=0.5, color='red')
@@ -427,32 +466,19 @@ def main() -> None:
         # number of tracked landmarks over the past 20 frames
         ax2.clear()
         ax2.plot(num_tracked_kps, 'kx--')
-        ax2.set_title("No. KPs tracked in past 20 frames")
+        ax2.set_title(f"No. KPs tracked in past {len(num_tracked_kps)} frames")
         ax2.set_ylim(0, 5000)
 
         # Trajectory of last 20 frames and landmarks
         ax3.clear()
-        ax3.scatter(state.X[0,:], state.X[2,:], marker='x', color='black')
-        ax3.plot(x, y, 'x--')
-        ax3.set_title("Last 20 frames, landmarks")
-
-        # Plot trajectory
-        # ax0.set_xlim([-100, 100])
-        # ax0.set_ylim([-100, 100])
-        # ax0.set_zlim([-100, 100])
-        # ax0.scatter(x, y, marker='.', color='red')
-        ax0.set_title(f"Current pose: (x: {cameraPose[0]:.3f}, y:{cameraPose[2]:.3f})")
-        ax0.plot(cameraPose[0], cameraPose[2], marker='.', color='black')
-        # if len(y) > 1:
-        #     ax0.scatter(x[-2], y[-2], marker='o', color='red')
-        # ax0.scatter(prev_state.X[0,:], prev_state.X[1,:], marker='.', color='black')
+        ax3.scatter(state.X[0,:], state.X[2,:], marker='x', color='green')
+        for i in range(len(x)-1):
+            ax3.arrow(x=x[i], y=y[i], dx=dx[i]*10, dy=dy[i]*10, width=1)
+        ax3.arrow(x=x[-1], y=y[-1], dx=dx[-1]*15, dy=dy[-1]*15, width=2, color='yellow')
+        ax3.set_title(f"Last {len(x)} frames, landmarks")
 
         plt.tight_layout()
         plt.pause(0.0001)
-
-        # ~ Press Q on keyboard to exit (for debugging)
-        # if cv2.waitKey(25) & 0xFF == ord('q'):
-        #     break
 
     # Close all windows we might have
     cv2.destroyAllWindows()
