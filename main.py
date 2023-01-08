@@ -270,7 +270,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose, Pose]:
     X1 = X0[:, inliers.astype(bool)] # Update X1 from P1 and X0
     # print(np.sum(inliers))
     R_CW, t_CW, inliers_pnp = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
-    
+
     prev_pts = np.copy(P0.T[inliers,:2].astype(np.float32))
     curr_pts = np.copy(P1)
     E, mask = cv2.findEssentialMat(curr_pts.astype(np.float32), prev_pts.astype(np.float32), K, cv2.RANSAC, 0.99, 1.0, None)
@@ -315,7 +315,7 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose, Pose]:
     return S1, T1_CW, T1_CW_check
 
 def readGroundtuthPosition(frameId):
-    groundtruthFile = os.path.join("./data/kitti/05/", "05.txt")
+    groundtruthFile = os.path.join("./data/kitti/poses/", "05.txt")
     with open(groundtruthFile) as f:
         lines = f.readlines()
 
@@ -324,7 +324,7 @@ def readGroundtuthPosition(frameId):
 
         position = (tx, ty, tz)
         scale = np.sqrt((tx-tx_prev)**2 + (ty-ty_prev)**2  + (tz-tz_prev)**2)
-        
+
         return position, scale
 
 def main() -> None:
@@ -389,7 +389,8 @@ def main() -> None:
 
         X_cam = T_WC @ prev_state.X
 
-        _, scale = readGroundtuthPosition(img_idx)
+        # _, scale = readGroundtuthPosition(img_idx)
+        scale = 1.0
         cameraPose = cameraPose + scale*cameraRot.dot(T_WC_check[:,3])
         cameraRot = T_WC_check[:,:3].dot(cameraRot)
 
