@@ -13,6 +13,8 @@ from code.pnp_ransac_main import PnPransacCV, ransacLocalization
 from code.triangulate_new import TriangulateNew
 import os
 
+import time
+
 # Constants for tunable parameters
 from code.constants import *
 
@@ -197,6 +199,7 @@ def readGroundtuthPosition(frameId):
 
 def main() -> None:
     np.set_printoptions(precision=3, suppress=True)
+    time.sleep(3)
 
     # Bootstrap upto manually selected BOOTSTRAP_FRAME
     I = []
@@ -361,20 +364,19 @@ def main() -> None:
                 method_error = None
 
             ax3.clear()
-            # ax3.set_xlim(x[-1]-100, x[-1]+100)
-            # ax3.set_ylim(y[-1]-100, y[-1]+100)
-            if P_W is not None:
-                ax3.scatter(P_W[0,:], P_W[2,:], marker='x', color='green')
-                ax3.arrow(x=t_WC[0,0], y=t_WC[2,0], dx=R_WC[0,2]*15, dy=R_WC[2,2]*15, width=2, color='magenta')
-                ax3.arrow(x=triang_pose[0][0,3],
-                    y=triang_pose[0][2,3],
-                    dx=triang_pose[0][0,2]*10,
-                    dy=triang_pose[0][2,2]*10, width=2, color='red')
+            ax3.set_xlim(x[-1]-100, x[-1]+100)
+            ax3.set_ylim(y[-1]-100, y[-1]+100)
             for i in range(len(x)-1):
                 ax3.arrow(x=x[i], y=y[i], dx=dx[i]*10, dy=dy[i]*10, width=1)
             ax3.arrow(x=x[-1], y=y[-1], dx=dx[-1]*15, dy=dy[-1]*15, width=2, color='yellow')
             if method_error is not None:
                 title = f"Last {len(x)} frames. Diff between 3D-2D and 2D-2D: {method_error:.2f}"
+                ax3.scatter(P_W[0,:], P_W[2,:], marker='x', color='green')
+                ax3.arrow(x=t_WC[0,0], y=t_WC[2,0], dx=R_WC[0,2]*15, dy=R_WC[2,2]*15, width=2, color='magenta')
+                ax3.arrow(x=triang_pose[0][0,3],
+                    y=triang_pose[0][2,3],
+                    dx=triang_pose[0][0,2]*10,
+                    dy=triang_pose[0][2,2]*10, width=2, color='red', alpha=0.7)
             else:
                 title = f"Last {len(x)} frames"
             ax3.set_title(title)
