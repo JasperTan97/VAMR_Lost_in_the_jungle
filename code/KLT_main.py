@@ -40,6 +40,7 @@ def KLT_CV2(keypoints, I, I_prev):
     keypoints = p1[right_indices,:]
     inliers = np.zeros(p1.shape[0]).astype(bool)
     inliers[right_indices] = True
+    #print(keypoints.shape, inliers.shape, right_indices.shape, p1.shape)
     return keypoints, inliers
 
 def KLT_bootstraping(keypoints, kpt_original, I, I_prev):
