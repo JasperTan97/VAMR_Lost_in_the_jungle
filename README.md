@@ -2,7 +2,7 @@
 
 As part of the mini-project for the [Vision Algorithms for Mobile Robotics](https://rpg.ifi.uzh.ch/teaching.html) (VAMR) course at UZH taught by Prof Davide Scaramuzza, we (Abhiram, Adarsh, Jasper and [TianYi](https://github.com/tianyilim)) implement a monocular Visual Odometry (VO) pipeline on the KITTI, Malaga and Parking datasets.
 
-Our report is [here](Visual_Odometry_Pipeline_Report.pdf)
+Our report is [here](Visual_Odometry_Pipeline_Report.pdf).
 
 ## Setup
 1. Clone this repository.
