@@ -19,17 +19,28 @@ def KLT_bootstrapping_CV2(keypoints, kpt_original, I, I_prev):
 
     return keypoints, kpt_original
 
+def calcWrongFeatureIndices(features, frame, status):
+    status_ = status.copy()
+    for idx, pt in enumerate(features):
+        if pt[0] < 0 or pt[1] < 0 or pt[0] > frame.shape[1] or pt[1] > frame.shape[0]:
+            status_[idx] = 0
+    rightIndices = np.where(status_ == 1)[0]
+    return rightIndices
+
 def KLT_CV2(keypoints, I, I_prev):
     keypoints = keypoints.astype(np.float32)
-    lk_params = dict( winSize  = (R_T, R_T),
-                  maxLevel = 2,
-                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, KLT_N_ITER, KLT_THRESHOLD))
-    p1, st, _ = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None, **lk_params)
+    # lk_params = dict( winSize  = (R_T, R_T),
+    #               maxLevel = 2,
+    #               criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, KLT_N_ITER, KLT_THRESHOLD))
+    p1, st, _ = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None)
     # kpold = keypoints[st==1]
     st = st.reshape(keypoints.shape[0])
-    keypoints = p1[st==1,:]
-
-    return keypoints, st
+    right_indices = calcWrongFeatureIndices(p1, I, st)
+    # st = np.logical_and(st, wrong_indices)
+    keypoints = p1[right_indices,:]
+    inliers = np.zeros(p1.shape[0]).astype(bool)
+    inliers[right_indices] = True
+    return keypoints, inliers
 
 def KLT_bootstraping(keypoints, kpt_original, I, I_prev):
     """ 

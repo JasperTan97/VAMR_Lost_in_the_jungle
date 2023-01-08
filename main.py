@@ -13,6 +13,7 @@ from code.get_relative_pose import get_relative_pose
 from code.SIFT_main import SIFT
 from code.pnp_ransac_main import PnPransacCV, ransacLocalization
 from code.triangulate_new import TriangulateNew
+import os
 # from code.linear_triangulation import linearTriangulation # (removed as unnecesary)
 
 # Constants for tunable parameters
@@ -21,7 +22,7 @@ from code.constants import *
 # For reading the dataset from file
 from glob import glob
 
-DATASET = 'parking'
+DATASET = 'kitti'
 if DATASET=='parking':
     DS_PATH = './data/parking/images/'
     K_PATH = './data/parking/K.txt'
@@ -117,6 +118,11 @@ def feature_detect_describe(image, detector="SIFT", descriptor=None) -> Tuple[np
             kp = np.unravel_index(temp_scores.argmax(), temp_scores.shape)
             kps[i, :] = np.array(kp) - r
             temp_scores[(kp[0] - r):(kp[0] + r + 1), (kp[1] - r):(kp[1] + r + 1)] = 0
+    elif detector == 'good':
+        detector = cv2.GFTTDetector_create()
+        features = detector.detect(image)
+        features = cv2.KeyPoint_convert(sorted(features, key = lambda p: p.response, reverse=True))
+        return features, None
 
     if descriptor is None:
         kps[:, [1, 0]] = kps[:, [0, 1]]
@@ -144,7 +150,7 @@ def initialiseVO(I) -> VO_state:
     Bootstrapping
     '''
 
-    kp0, _ = feature_detect_describe(I[0], detector="harris")
+    kp0, _ = feature_detect_describe(I[0], detector="good")
     candi_keypoints = np.copy(kp0)
 
     # for checking
@@ -245,7 +251,7 @@ def initialiseVO(I) -> VO_state:
 
     return VO_state(P=points0, X=X0, C=C0, F=F0, T=T0)
 
-def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
+def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose, Pose]:
     '''
     Continuous VO
     Inputs: Current image I1, previous state S0
@@ -262,8 +268,17 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
 
     P1, inliers = KLT_CV2(P0.T[:,:-1].astype(np.float32), I1, I0) # tracks P0 features in I1
     X1 = X0[:, inliers.astype(bool)] # Update X1 from P1 and X0
-    # print(X1.T[:,:-1].shape)
+    # print(np.sum(inliers))
     R_CW, t_CW, inliers_pnp = PnPransacCV(P1.astype(np.float32), X1[:-1,:].T.astype(np.float64), K) # Get current pose with RANSAC
+    
+    prev_pts = np.copy(P0.T[inliers,:2].astype(np.float32))
+    curr_pts = np.copy(P1)
+    E, mask = cv2.findEssentialMat(curr_pts.astype(np.float32), prev_pts.astype(np.float32), K, cv2.RANSAC, 0.99, 1.0, None)
+    prev_pts = np.array([pt for (idx, pt) in enumerate(prev_pts) if mask[idx] == 1])
+    curr_pts = np.array([pt for (idx, pt) in enumerate(curr_pts) if mask[idx] == 1])
+    _, R_check, T_check, _ = cv2.recoverPose(E, curr_pts, prev_pts, K)
+    print(f"{len(curr_pts)} features left after pose estimation.")
+
     # R_CW, t_CW, inliers_pnp, _, _ = ransacLocalization(P1.T, X1[:-1,:].T, K)
     # t_CW = t_CW.reshape(-1,1)
     inliers_pnp = inliers_pnp.reshape(-1)
@@ -277,12 +292,12 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     F1 = F0[:, inliers_candidates.astype(bool)]
     T1 = T0[:, inliers_candidates.astype(bool)]
     # Add new features to keep C1 from shrinking
-    candi_kp, _ = feature_detect_describe(I1, detector="harris")
+    candi_kp, _ = feature_detect_describe(I1, detector="good")
     l_c = distance_matrix(candi_kp, C1).min(axis=1)<4
     l_p = distance_matrix(candi_kp, P1).min(axis=1)<4
     l = np.logical_or(l_c,l_p)
     candi_kp = candi_kp[~l,:]
-    # print(candi_kp.shape[0])
+    # print(np.sum(l_p))
     C1 = np.vstack([C1, candi_kp])
     F1 = np.hstack([F1, np.vstack([candi_kp.T, np.ones(candi_kp.shape[0])])])
     T1 = np.hstack([T1, np.hstack(candi_kp.shape[0]*[pose_flattened.reshape(-1,1)])])
@@ -296,7 +311,21 @@ def processFrame(I1, I0, S0: VO_state) -> Tuple[VO_state, Pose]:
     C1 = np.vstack([C1.T, np.ones(C1.shape[0])])
     S1 = VO_state(P=P1, X=X1, C=C1, F=F1, T=T1) # repack state i
 
-    return S1, T1_CW
+    T1_CW_check = np.hstack([R_check, T_check])
+    return S1, T1_CW, T1_CW_check
+
+def readGroundtuthPosition(frameId):
+    groundtruthFile = os.path.join("./data/kitti/05/", "05.txt")
+    with open(groundtruthFile) as f:
+        lines = f.readlines()
+
+        _, _, _, tx, _, _, _, ty, _, _, _, tz = list(map(float, lines[frameId].rstrip().split(" ")))
+        _, _, _, tx_prev, _, _, _, ty_prev, _, _, _, tz_prev = list(map(float, lines[frameId-1].rstrip().split(" ")))
+
+        position = (tx, ty, tz)
+        scale = np.sqrt((tx-tx_prev)**2 + (ty-ty_prev)**2  + (tz-tz_prev)**2)
+        
+        return position, scale
 
 def main() -> None:
     np.set_printoptions(precision=3, suppress=True)
@@ -316,16 +345,18 @@ def main() -> None:
 
     T0 = np.hstack((np.eye(3), np.zeros((3,1)))) # identity SE3 member for initial pose to signify world frame
     odom = [T0]
+    cameraPose = T0[:,3]
+    cameraRot = T0[:,:3]
     print("Bootstrap done")
     # return
     # Continuous VO
     prev_state = bootstrapped_state # use bootstrapped state as first state
     prev_frame = I[0]
 
-    fig0 = plt.figure(1)
-    fig1 = plt.figure(2)
-    ax0 = fig0.add_subplot()
-    ax1 = fig1.add_subplot()
+    # fig0 = plt.figure(1)
+    # fig1 = plt.figure(2)
+    # ax0 = fig0.add_subplot()
+    # ax1 = fig1.add_subplot()
 
     y = []
     x = []
@@ -349,7 +380,7 @@ def main() -> None:
 
         frame = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
-        state, T_WC = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
+        state, T_WC, T_WC_check = processFrame(frame, prev_frame, prev_state) # continuous VO markov chain
 
         prev_state = state # set current state to previous state for next image
         prev_frame = frame
@@ -358,8 +389,12 @@ def main() -> None:
 
         X_cam = T_WC @ prev_state.X
 
+        _, scale = readGroundtuthPosition(img_idx)
+        cameraPose = cameraPose + scale*cameraRot.dot(T_WC_check[:,3])
+        cameraRot = T_WC_check[:,:3].dot(cameraRot)
+
         n_front = np.sum(X_cam[2,:] > 0)
-        print("Fraction of points infront",n_front/X_cam.shape[1], prev_state.X.shape[1])
+        # print("Fraction of points infront",n_front/X_cam.shape[1], prev_state.X.shape[1])
 
         R_C_W = T_WC[:3,:3]
         t_C_W = T_WC[:,-1]
@@ -405,8 +440,8 @@ def main() -> None:
         # ax0.set_ylim([-100, 100])
         # ax0.set_zlim([-100, 100])
         # ax0.scatter(x, y, marker='.', color='red')
-        ax0.set_title(f"Current pose: (x: {t_W_C[0]:.3f}, y:{t_W_C[2]:.3f})")
-        ax0.plot(t_W_C[0], t_W_C[2], marker='.', color='black')
+        ax0.set_title(f"Current pose: (x: {cameraPose[0]:.3f}, y:{cameraPose[2]:.3f})")
+        ax0.plot(cameraPose[0], cameraPose[2], marker='.', color='black')
         # if len(y) > 1:
         #     ax0.scatter(x[-2], y[-2], marker='o', color='red')
         # ax0.scatter(prev_state.X[0,:], prev_state.X[1,:], marker='.', color='black')
