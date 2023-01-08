@@ -10,6 +10,8 @@ Our report is [here](Visual_Odometry_Pipeline_Report.pdf).
 3. Run `setup.sh`. It should:
    1. Setup a `conda` environment, `vamr_proj`, with `requirements.txt` installed.
    2. Download the datasets from the VAMR course websites.
+   OR 
+   Conda environment has been exported as environment.yml
 4. Try out our examples.
 
 ## Repository Structure
