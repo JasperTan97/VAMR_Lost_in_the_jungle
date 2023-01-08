@@ -5,7 +5,7 @@ STARTING_FRAME = 0
 BOOTSTRAP_FRAME = 4
 
 
-RANSAC_REPROJ_THRESHOLD = 0.1  # Reprojection error tolerated for RANSAC to consider it an inlier
+RANSAC_REPROJ_THRESHOLD = 0.1   # Reprojection error tolerated for RANSAC to consider it an inlier
                                 # Value copied from MATLAB
 RANSAC_PROB_SUCCESS = 0.99      # Probability of success of RANSAC
 RANSAC_OUTLIER_FRAC = 0.50      # Outlier ratio
@@ -40,8 +40,8 @@ HARRIS_R = 9                # Non-max suppression radius
 # KLT #
 #######
 R_T = 31                        # scalar, radius of patch to track
-KLT_N_ITER = 10                     # scalar, number of iterations
-KLT_THRESHOLD = 1.0                 # scalar, bidirectional error threshold
+KLT_N_ITER = 10                 # scalar, number of iterations
+KLT_THRESHOLD = 1.0             # scalar, bidirectional error threshold
 
 ##############
 # PnP RANSAC #
@@ -54,6 +54,6 @@ PIXEL_TOLERANCE = 10
 # Triangulation #
 #################
 
-PAR_ANGLE = 3.0    # Minimum angle in degrees for triangulation
+PAR_ANGLE = 3.0    # Minimum angle in degrees for triangulation (alpha)
 PAR_THRESHOLD = math.cos(math.radians(PAR_ANGLE))
 REPROJ_ERR = 8

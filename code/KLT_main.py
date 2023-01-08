@@ -10,11 +10,9 @@ def KLT_bootstrapping_CV2(keypoints, kpt_original, I, I_prev):
     lk_params = dict( winSize  = (R_T, R_T),
                   maxLevel = 2,
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, KLT_N_ITER, KLT_THRESHOLD))
-    p1, st, err = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None, **lk_params)
-    #print(kpt_original.shape, st.shape)
+    p1, st, _ = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None, **lk_params)
     st = st.reshape(keypoints.shape[0])
     kpt_original = kpt_original[st==1,:]
-    #kpold = keypoints[st==1,:]
     keypoints = p1[st==1,:]
 
     return keypoints, kpt_original
@@ -29,18 +27,12 @@ def calcWrongFeatureIndices(features, frame, status):
 
 def KLT_CV2(keypoints, I, I_prev):
     keypoints = keypoints.astype(np.float32)
-    # lk_params = dict( winSize  = (R_T, R_T),
-    #               maxLevel = 2,
-    #               criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, KLT_N_ITER, KLT_THRESHOLD))
     p1, st, _ = cv2.calcOpticalFlowPyrLK(I_prev, I, keypoints, None)
-    # kpold = keypoints[st==1]
     st = st.reshape(keypoints.shape[0])
     right_indices = calcWrongFeatureIndices(p1, I, st)
-    # st = np.logical_and(st, wrong_indices)
     keypoints = p1[right_indices,:]
     inliers = np.zeros(p1.shape[0]).astype(bool)
     inliers[right_indices] = True
-    #print(keypoints.shape, inliers.shape, right_indices.shape, p1.shape)
     return keypoints, inliers
 
 def KLT_bootstraping(keypoints, kpt_original, I, I_prev):
@@ -61,7 +53,6 @@ def KLT_bootstraping(keypoints, kpt_original, I, I_prev):
     keypoints = keypoints.T
     kpt_original = kpt_original.T
     dkp = np.zeros_like(keypoints)
-    # dkp = []
     keep = np.ones((keypoints.shape[1],)).astype('bool')
     for j in range(keypoints.shape[1]):
         kptd, k = trackKLTRobustly(I_prev, I, keypoints[:,j].T, R_T, KLT_N_ITER, KLT_THRESHOLD)
@@ -93,13 +84,11 @@ def KLT(keypoints, I, I_prev) -> np.ndarray:
     """ 
     keypoints = keypoints.T
     dkp = np.zeros_like(keypoints)
-    # dkp = []
     keep = np.ones((keypoints.shape[1],)).astype('bool')
     for j in range(keypoints.shape[1]):
         kptd, k = trackKLTRobustly(I_prev, I, keypoints[:,j].T, R_T, KLT_N_ITER, KLT_THRESHOLD)
         dkp[:, j] = kptd
         keep[j] = k
-    # kpold = keypoints[:, keep]
     keypoints = keypoints + dkp
     keypoints = keypoints[:, keep]
     keypoints = keypoints.T

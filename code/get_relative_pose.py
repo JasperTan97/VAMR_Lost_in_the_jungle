@@ -40,7 +40,7 @@ def get_relative_pose(
     R0 = u @ W @ vh
     R1 = u @ W.T @ vh
 
-    if np.linalg.det(R0) < 0:
+    if np.linalg.det(R0) < 0:   # Set the correct orientation
         R0 *= -1
     if np.linalg.det(R1) < 0:
         R1 *= -1

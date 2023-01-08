@@ -38,10 +38,11 @@ def PnPRANSAC(P1, X1, K):
         # Calulate inliers
         dist = X1_proj.T - P1
         errors = (dist**2).sum(0)
-        
+        # Check the inlier count
         idx_inlier = errors < PIXEL_TOLERANCE**2
         n_in = np.count_nonzero(idx_inlier)
         if n_in > N_inliers:
+            # Resolve the PnP problem with the inliers alone to get a better estimate
             N_inliers = n_in
             _, R1_best, T1_best = cv2.solvePnP(objectPoints=X1[:,idx_inlier],
                                                imagePoints=P1[:,idx_inlier],
